@@ -35,7 +35,7 @@ export default function WelcomePage() {
       <footer className="flex w-full max-w-sm flex-col items-center gap-3">
 
         <Link
-          href="/home"
+          href="/onboarding"
           className="block w-full rounded-full py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-85 active:opacity-70"
           style={{ fontFamily: "var(--font-space)", background: "#E63946" }}
         >
@@ -43,7 +43,7 @@ export default function WelcomePage() {
         </Link>
 
         <Link
-          href="/home"
+          href="/onboarding"
           className="block w-full rounded-full border py-4 text-center text-xs font-medium uppercase tracking-[0.2em] transition-colors hover:bg-[#FAFAFA]"
           style={{ fontFamily: "var(--font-space)", borderColor: "#F0F0F0", color: "#1A1A1A" }}
         >
