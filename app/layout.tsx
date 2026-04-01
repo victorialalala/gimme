@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import Script from "next/script";
+import AuthProvider from "./components/AuthProvider";
 import "./globals.css";
 
 // Bold, geometric, fashion-magazine energy
@@ -34,7 +35,9 @@ export default function RootLayout({
         />
       </head>
       <body className="h-full bg-white text-[#1A1A1A] antialiased">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

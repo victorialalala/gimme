@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "../components/AuthProvider";
 
 const STEPS = [
   {
@@ -40,15 +41,22 @@ const STEPS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
+    if (loading) return;
+    // If not signed in, send them back to sign up
+    if (!user) {
+      router.replace("/");
+      return;
+    }
     if (localStorage.getItem("gimme-onboarded")) {
       router.replace("/home");
     } else {
       setShow(true);
     }
-  }, [router]);
+  }, [router, user, loading]);
 
   const handleGo = () => {
     localStorage.setItem("gimme-onboarded", "1");
