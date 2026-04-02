@@ -2,9 +2,11 @@
 // It receives a photo (as base64), sends it to GPT-4o,
 // and returns a JSON object describing the product.
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+export const config = {
+  maxDuration: 30,
+};
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: any, res: any) {
   // Only allow POST requests
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -59,8 +61,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("OpenAI error:", data);
-      return res.status(500).json({ error: "AI identification failed" });
+      console.error("OpenAI error:", JSON.stringify(data));
+      return res.status(500).json({ error: "AI identification failed", detail: data?.error?.message || "Unknown error" });
     }
 
     // Parse the JSON from GPT-4o's response
@@ -69,13 +71,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Extract JSON from the response (GPT sometimes wraps it in ```json blocks)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return res.status(500).json({ error: "Could not parse AI response" });
+      return res.status(500).json({ error: "Could not parse AI response", raw: text });
     }
 
     const product = JSON.parse(jsonMatch[0]);
     return res.status(200).json(product);
-  } catch (error) {
-    console.error("Identify error:", error);
-    return res.status(500).json({ error: "Something went wrong" });
+  } catch (error: any) {
+    console.error("Identify error:", error?.message || error);
+    return res.status(500).json({ error: "Something went wrong", detail: error?.message });
   }
 }
