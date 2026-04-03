@@ -135,6 +135,34 @@ function IdentifiedContent() {
     setSaving(true);
 
     try {
+      let imageUrl: string | null = null;
+
+      // Upload photo to Supabase Storage if we have one
+      if (imageData) {
+        const fileName = `${user.id}/${Date.now()}.jpg`;
+
+        // Convert base64 to a Blob for upload
+        const byteString = atob(imageData);
+        const bytes = new Uint8Array(byteString.length);
+        for (let i = 0; i < byteString.length; i++) {
+          bytes[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: "image/jpeg" });
+
+        const { error: uploadError } = await supabase.storage
+          .from("item-images")
+          .upload(fileName, blob, { contentType: "image/jpeg" });
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from("item-images")
+            .getPublicUrl(fileName);
+          imageUrl = urlData.publicUrl;
+        } else {
+          console.error("Upload error:", uploadError);
+        }
+      }
+
       const { error } = await supabase.from("saved_items").insert({
         user_id: user.id,
         name: product.name,
@@ -143,11 +171,15 @@ function IdentifiedContent() {
         collection: product.category,
         bg_color: PASTEL_BGS[product.category] || PASTEL_BGS.other,
         description: product.description,
-        image_url: imageData ? null : null, // We'll add image upload later
+        image_url: imageUrl,
       });
 
       if (error) throw error;
       setSaved(true);
+
+      // Clean up sessionStorage
+      sessionStorage.removeItem("gimme-capture");
+      sessionStorage.removeItem("gimme-search-query");
 
       // Go to home after a beat
       setTimeout(() => router.push("/home"), 1200);
