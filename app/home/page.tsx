@@ -6,11 +6,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../components/AuthProvider";
 import { supabase } from "../lib/supabase";
 
-type Collection = {
-  id: string;
-  label: string;
-};
-
 type SavedItem = {
   id: string;
   name: string;
@@ -21,24 +16,6 @@ type SavedItem = {
   image_url: string | null;
 };
 
-/* Fallback demo items — shown when the database is empty or tables don't exist yet */
-const DEMO_ITEMS: SavedItem[] = [
-  { id: "1", name: "Santos de Cartier",   brand: "Cartier",       price: "$7,400",  collection: "watches",  bg: "#F5F0EB", image_url: null },
-  { id: "2", name: "Le Bambino",          brand: "Jacquemus",     price: "$620",    collection: "bags",     bg: "#EBF0F5", image_url: null },
-  { id: "3", name: "Air Max 90",          brand: "Nike",          price: "$130",    collection: "sneakers", bg: "#F0F5EB", image_url: null },
-  { id: "4", name: "B-Zero1 Ring",        brand: "Bulgari",       price: "$1,080",  collection: "gifts",    bg: "#F5EBF0", image_url: null },
-  { id: "5", name: "Sac de Jour",         brand: "Saint Laurent", price: "$2,950",  collection: "bags",     bg: "#F0EBEB", image_url: null },
-  { id: "6", name: "New Balance 550",     brand: "New Balance",   price: "$110",    collection: "sneakers", bg: "#EBEBF0", image_url: null },
-];
-
-const DEFAULT_COLLECTIONS: Collection[] = [
-  { id: "all", label: "All" },
-  { id: "watches", label: "Watches" },
-  { id: "bags", label: "Bags" },
-  { id: "sneakers", label: "Sneakers" },
-  { id: "gifts", label: "Gifts for Me" },
-];
-
 const PASTEL_BGS = ["#F5F0EB", "#EBF0F5", "#F0F5EB", "#F5EBF0", "#F0EBEB", "#EBEBF0", "#F5F2EB", "#EBF5F2"];
 
 export default function HomePage() {
@@ -46,9 +23,17 @@ export default function HomePage() {
   const { user, loading: authLoading, signOut } = useAuth();
   const [active, setActive] = useState("all");
   const [items, setItems] = useState<SavedItem[]>([]);
-  const [collections, setCollections] = useState<Collection[]>(DEFAULT_COLLECTIONS);
+  const [collections, setCollections] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
+
+  // New collection modal
+  const [showNewCollection, setShowNewCollection] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  // Edit collection modal
+  const [editingCollection, setEditingCollection] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
 
   // Redirect to welcome if not signed in
   useEffect(() => {
@@ -60,56 +45,88 @@ export default function HomePage() {
   // Load items from Supabase
   useEffect(() => {
     if (!user) return;
-
-    async function loadData() {
-      try {
-        // Try loading saved items from Supabase
-        const { data: savedItems, error: itemsError } = await supabase
-          .from("saved_items")
-          .select("*")
-          .eq("user_id", user!.id)
-          .order("created_at", { ascending: false });
-
-        if (!itemsError && savedItems && savedItems.length > 0) {
-          setItems(
-            savedItems.map((item, i) => ({
-              id: item.id,
-              name: item.name,
-              brand: item.brand,
-              price: item.price,
-              collection: item.collection || "all",
-              bg: item.bg_color || PASTEL_BGS[i % PASTEL_BGS.length],
-              image_url: item.image_url,
-            }))
-          );
-        } else {
-          // No items yet or table doesn't exist — show demo
-          setItems(DEMO_ITEMS);
-        }
-
-        // Try loading collections
-        const { data: userCollections, error: colError } = await supabase
-          .from("collections")
-          .select("*")
-          .eq("user_id", user!.id)
-          .order("position", { ascending: true });
-
-        if (!colError && userCollections && userCollections.length > 0) {
-          setCollections([
-            { id: "all", label: "All" },
-            ...userCollections.map((c) => ({ id: c.slug, label: c.name })),
-          ]);
-        }
-      } catch {
-        // If Supabase tables aren't set up yet, use demo data
-        setItems(DEMO_ITEMS);
-      }
-
-      setDataLoading(false);
-    }
-
     loadData();
   }, [user]);
+
+  async function loadData() {
+    if (!user) return;
+
+    try {
+      const { data: savedItems, error } = await supabase
+        .from("saved_items")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (!error && savedItems) {
+        const mapped = savedItems.map((item, i) => ({
+          id: item.id,
+          name: item.name,
+          brand: item.brand,
+          price: item.price,
+          collection: item.collection || "other",
+          bg: item.bg_color || PASTEL_BGS[i % PASTEL_BGS.length],
+          image_url: item.image_url,
+        }));
+        setItems(mapped);
+
+        // Build unique collection names from saved items
+        const uniqueCollections = [...new Set(mapped.map((i) => i.collection))].filter(Boolean);
+        setCollections(uniqueCollections);
+      }
+    } catch {
+      // Silently fail
+    }
+
+    setDataLoading(false);
+  }
+
+  // Rename all items in a collection
+  async function handleRenameCollection() {
+    if (!user || !editingCollection || !editName.trim()) return;
+
+    const newSlug = editName.trim().toLowerCase();
+    await supabase
+      .from("saved_items")
+      .update({ collection: newSlug })
+      .eq("user_id", user.id)
+      .eq("collection", editingCollection);
+
+    setEditingCollection(null);
+    setEditName("");
+    if (active === editingCollection) setActive(newSlug);
+    loadData();
+  }
+
+  // Delete all items in a collection
+  async function handleDeleteCollection() {
+    if (!user || !editingCollection) return;
+
+    const confirmed = window.confirm(`Delete all items in "${editingCollection}"?`);
+    if (!confirmed) return;
+
+    await supabase
+      .from("saved_items")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("collection", editingCollection);
+
+    setEditingCollection(null);
+    setActive("all");
+    loadData();
+  }
+
+  // Create new empty collection (just switches to it)
+  function handleCreateCollection() {
+    if (!newName.trim()) return;
+    const slug = newName.trim().toLowerCase();
+    if (!collections.includes(slug)) {
+      setCollections((prev) => [...prev, slug]);
+    }
+    setActive(slug);
+    setShowNewCollection(false);
+    setNewName("");
+  }
 
   const filtered = active === "all" ? items : items.filter((i) => i.collection === active);
 
@@ -178,29 +195,50 @@ export default function HomePage() {
       {/* Subhead */}
       <div className="px-5 pb-2">
         <p className="text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
-          {items.length} items saved
+          {items.length} {items.length === 1 ? "item" : "items"} saved
         </p>
       </div>
 
       {/* Collection pills */}
       <div className="flex gap-2 overflow-x-auto px-5 pb-4 pt-1 scrollbar-none">
+        {/* All pill */}
+        <button
+          onClick={() => setActive("all")}
+          className="flex-shrink-0 rounded-full px-4 py-2 text-xs font-medium transition-all"
+          style={{
+            fontFamily: "var(--font-space)",
+            background: active === "all" ? "#E63946" : "#FAFAFA",
+            color: active === "all" ? "#FFFFFF" : "#8A8A8A",
+            border: active === "all" ? "none" : "1px solid #F0F0F0",
+          }}
+        >
+          All
+        </button>
+
+        {/* Dynamic collection pills */}
         {collections.map((c) => (
           <button
-            key={c.id}
-            onClick={() => setActive(c.id)}
-            className="flex-shrink-0 rounded-full px-4 py-2 text-xs font-medium transition-all"
+            key={c}
+            onClick={() => setActive(c)}
+            onDoubleClick={() => {
+              setEditingCollection(c);
+              setEditName(c);
+            }}
+            className="flex-shrink-0 rounded-full px-4 py-2 text-xs font-medium capitalize transition-all"
             style={{
               fontFamily: "var(--font-space)",
-              background: active === c.id ? "#E63946" : "#FAFAFA",
-              color: active === c.id ? "#FFFFFF" : "#8A8A8A",
-              border: active === c.id ? "none" : "1px solid #F0F0F0",
+              background: active === c ? "#E63946" : "#FAFAFA",
+              color: active === c ? "#FFFFFF" : "#8A8A8A",
+              border: active === c ? "none" : "1px solid #F0F0F0",
             }}
           >
-            {c.label}
+            {c}
           </button>
         ))}
-        {/* Add collection */}
+
+        {/* Add collection button */}
         <button
+          onClick={() => setShowNewCollection(true)}
           className="flex flex-shrink-0 items-center gap-1 rounded-full px-3 py-2 text-xs transition-colors hover:bg-[#FAFAFA]"
           style={{ fontFamily: "var(--font-space)", color: "#C4C4C4", border: "1px dashed #E0E0E0" }}
         >
@@ -211,21 +249,99 @@ export default function HomePage() {
         </button>
       </div>
 
+      {/* Edit collection bar — shows when double-tapping a pill */}
+      {editingCollection && (
+        <div className="mx-4 mb-4 flex items-center gap-2 rounded-2xl p-3" style={{ background: "#FAFAFA", border: "1px solid #F0F0F0" }}>
+          <input
+            autoFocus
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleRenameCollection()}
+            className="flex-1 rounded-lg bg-white px-3 py-2 text-sm outline-none"
+            style={{ fontFamily: "var(--font-inter)", border: "1px solid #F0F0F0", color: "#1A1A1A" }}
+          />
+          <button
+            onClick={handleRenameCollection}
+            className="rounded-full px-3 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-white"
+            style={{ fontFamily: "var(--font-space)", background: "#E63946" }}
+          >
+            Save
+          </button>
+          <button
+            onClick={handleDeleteCollection}
+            className="rounded-full px-3 py-2 text-[10px] font-medium uppercase tracking-[0.1em]"
+            style={{ fontFamily: "var(--font-space)", color: "#E63946", border: "1px solid #F0F0F0" }}
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => setEditingCollection(null)}
+            className="text-[#C4C4C4]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* New collection modal */}
+      {showNewCollection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6" onClick={() => setShowNewCollection(false)}>
+          <div
+            className="w-full max-w-sm rounded-3xl bg-white p-6"
+            onClick={(e) => e.stopPropagation()}
+            style={{ border: "1px solid #F0F0F0" }}
+          >
+            <h3 className="text-lg font-bold mb-1" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
+              New Collection
+            </h3>
+            <p className="text-xs font-light mb-4" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
+              Give it a name — you can change it later.
+            </p>
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreateCollection()}
+              placeholder="e.g. Birthday Wishlist"
+              className="w-full rounded-xl py-3 px-4 text-sm outline-none mb-4"
+              style={{ fontFamily: "var(--font-inter)", background: "#FAFAFA", border: "1px solid #F0F0F0", color: "#1A1A1A" }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowNewCollection(false)}
+                className="flex-1 rounded-full py-3 text-xs font-medium uppercase tracking-[0.15em]"
+                style={{ fontFamily: "var(--font-space)", color: "#8A8A8A", border: "1px solid #F0F0F0" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateCollection}
+                className="flex-1 rounded-full py-3 text-xs font-semibold uppercase tracking-[0.15em] text-white"
+                style={{ fontFamily: "var(--font-space)", background: "#E63946" }}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Item grid */}
       <div className="grid grid-cols-2 gap-3 px-4">
-        {filtered.map((item, i) => (
+        {filtered.map((item) => (
           <Link
             href={`/item?id=${item.id}`}
             key={item.id}
-            className={`fade-up-${Math.min(i + 1, 4)} group flex flex-col overflow-hidden rounded-2xl transition-transform hover:scale-[1.02] active:scale-[0.98]`}
+            className="group flex flex-col overflow-hidden rounded-2xl transition-transform hover:scale-[1.02] active:scale-[0.98]"
             style={{ border: "1px solid #F0F0F0" }}
           >
-            {/* Image placeholder */}
+            {/* Image area */}
             <div
               className="relative flex h-44 w-full items-center justify-center"
               style={{ background: item.bg }}
             >
-              {/* Brand badge */}
               <span
                 className="absolute left-2.5 top-2.5 rounded-full bg-white/80 px-2.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.1em] backdrop-blur-sm"
                 style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}
@@ -245,22 +361,13 @@ export default function HomePage() {
 
             {/* Info */}
             <div className="flex flex-col gap-0.5 px-3 py-3">
-              <p
-                className="text-sm font-medium leading-tight"
-                style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}
-              >
+              <p className="text-sm font-medium leading-tight" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
                 {item.name}
               </p>
-              <p
-                className="text-xs"
-                style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}
-              >
+              <p className="text-xs" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
                 {item.brand}
               </p>
-              <p
-                className="mt-1 text-sm font-semibold"
-                style={{ fontFamily: "var(--font-space)", color: "#E63946" }}
-              >
+              <p className="mt-1 text-sm font-semibold" style={{ fontFamily: "var(--font-space)", color: "#E63946" }}>
                 {item.price}
               </p>
             </div>
@@ -269,7 +376,7 @@ export default function HomePage() {
       </div>
 
       {/* Empty state */}
-      {filtered.length === 0 && (
+      {items.length === 0 && (
         <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "#FAFAFA" }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C4C4C4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -277,8 +384,20 @@ export default function HomePage() {
               <circle cx="12" cy="13" r="4" />
             </svg>
           </div>
+          <h2 className="text-lg font-bold" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
+            No items yet
+          </h2>
           <p className="text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
-            Nothing here yet. Tap the camera to start saving.
+            Tap the camera below to snap your first item.
+          </p>
+        </div>
+      )}
+
+      {/* Empty filtered state */}
+      {items.length > 0 && filtered.length === 0 && (
+        <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+          <p className="text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
+            No items in this collection yet.
           </p>
         </div>
       )}
@@ -286,7 +405,7 @@ export default function HomePage() {
       {/* FAB — capture button */}
       <Link
         href="/capture"
-        className="fixed bottom-8 left-1/2 z-50 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 pulse-ring"
+        className="fixed bottom-8 left-1/2 z-50 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95"
         style={{ background: "#E63946" }}
       >
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
