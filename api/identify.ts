@@ -36,7 +36,7 @@ export default async function handler(req: any, res: any) {
           {
             role: "system",
             content:
-              "You are a product identification expert. When shown an image, identify the product as precisely as possible. Return ONLY valid JSON with these fields: brand (string), name (string), category (one of: watches, bags, sneakers, shoes, jewelry, clothing, accessories, electronics, home, other), description (short string, e.g. 'Automatic Watch · Steel · 35mm · Silver dial'), estimated_price (string with $ and commas, e.g. '$7,400'), confidence (number 0-100). If you cannot identify the product, set confidence to 0 and name to 'Unknown Item'.",
+              "You are a product identification expert. When shown an image, identify the product as precisely as possible. Return ONLY valid JSON with these fields: brand (string), name (string), category (MUST be exactly one of: beauty, accessories, clothing, art & design, home, technology), description (short string, e.g. 'Powder Compact · Matte Finish · Portable'), estimated_price (string with $ and commas, e.g. '$7,400'), confidence (number 0-100). Category rules: beauty = makeup, skincare, fragrance, haircare, nail polish, beauty tools. accessories = bags, watches, jewelry, sunglasses, scarves, hats, belts. clothing = all garments and shoes. art & design = artwork, prints, books, stationery, design objects. home = furniture, kitchenware, candles, decor, bedding, appliances. technology = electronics, gadgets, phones, laptops, headphones, cameras. If you cannot identify the product, set confidence to 0 and name to 'Unknown Item'.",
           },
           {
             role: "user",
