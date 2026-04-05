@@ -360,9 +360,14 @@ function IdentifiedContent() {
                         )}
                       </div>
                     </div>
-                    <p className="ml-3 text-base font-bold flex-shrink-0" style={{ fontFamily: "var(--font-space)", color: r.tag ? "#E63946" : "#1A1A1A" }}>
-                      {r.price}
-                    </p>
+                    <div className="ml-3 flex items-center gap-2 flex-shrink-0">
+                      <p className="text-base font-bold" style={{ fontFamily: "var(--font-space)", color: r.tag ? "#E63946" : "#1A1A1A" }}>
+                        {r.price}
+                      </p>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={r.tag ? "#E63946" : "#C4C4C4"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                    </div>
                   </a>
                 ))}
               </div>

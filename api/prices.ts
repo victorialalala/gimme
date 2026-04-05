@@ -35,16 +35,20 @@ export default async function handler(req: any, res: any) {
     }
 
     // Extract shopping results into a clean format
-    const results = (data.shopping_results || []).slice(0, 5).map(
+    // SerpAPI may return `link` (direct retailer URL) or `product_link` (Google Shopping page) — use whichever is available
+    const rawResults = (data.shopping_results || []).slice(0, 8).map(
       (item: any) => ({
         retailer: item.source || "Unknown",
         title: item.title || "",
         price: item.price || "N/A",
         price_num: item.extracted_price || 0,
-        link: item.link || "",
+        link: item.link || item.product_link || "",
         thumbnail: item.thumbnail || null,
       })
     );
+
+    // Filter out results with no usable link, then take top 5
+    const results = rawResults.filter((r: any) => r.link).slice(0, 5);
 
     // Sort by price (lowest first) and tag the best
     results.sort((a: any, b: any) => a.price_num - b.price_num);
