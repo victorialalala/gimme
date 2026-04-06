@@ -133,12 +133,18 @@ export default function HomePage() {
 
       {/* Header — generous top padding */}
       <header className="sticky top-0 z-40 flex items-center justify-between px-5 pt-6 pb-4 backdrop-blur-sm" style={{ background: "rgba(10,10,10,0.9)" }}>
-        <h1
-          className="font-display text-xl font-bold uppercase tracking-[0.1em]"
-          style={{ color: "#F5F5F0" }}
+        <button
+          onClick={() => router.push("/onboarding?from=home")}
+          className="transition-transform active:scale-90 hover:scale-105"
+          style={{ WebkitTapHighlightColor: "transparent" }}
         >
-          GIMME
-        </h1>
+          <h1
+            className="font-display text-xl font-bold uppercase tracking-[0.1em]"
+            style={{ color: "#F5F5F0" }}
+          >
+            GIMME
+          </h1>
+        </button>
         <button
           onClick={() => setShowSettings(!showSettings)}
           className="transition-colors"
