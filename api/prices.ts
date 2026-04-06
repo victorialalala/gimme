@@ -66,10 +66,10 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { brand, name } = req.body;
+  const { brand, name, model, search_query } = req.body;
 
-  if (!brand || !name) {
-    return res.status(400).json({ error: "Brand and name required" });
+  if (!brand && !name && !search_query) {
+    return res.status(400).json({ error: "Brand, name, or search_query required" });
   }
 
   const apiKey = process.env.SERPAPI_KEY;
@@ -78,7 +78,10 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const query = encodeURIComponent(`${brand} ${name} buy`);
+    // Use the pre-built search query if available (from cascade identify),
+    // otherwise construct from brand + name + model
+    const rawQuery = search_query || [brand, name, model].filter(Boolean).join(" ");
+    const query = encodeURIComponent(`${rawQuery} buy`);
     const url = `https://serpapi.com/search.json?engine=google_shopping&q=${query}&api_key=${apiKey}&num=10`;
 
     const response = await fetch(url);

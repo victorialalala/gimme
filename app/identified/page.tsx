@@ -9,10 +9,14 @@ import { supabase } from "../lib/supabase";
 type Product = {
   brand: string;
   name: string;
+  model: string;
+  color: string;
   category: string;
   description: string;
   estimated_price: string;
   confidence: number;
+  match_source: "lens" | "ai";
+  search_query: string;
 };
 
 type Retailer = {
@@ -79,8 +83,8 @@ function IdentifiedContent() {
       setProduct(data);
       setStage("found");
 
-      // Now fetch prices in the background
-      fetchPrices(data.brand, data.name);
+      // Now fetch prices using the structured search query
+      fetchPrices(data);
     } catch (err) {
       console.error("Identify error:", err);
       setStage("error");
@@ -94,22 +98,31 @@ function IdentifiedContent() {
     const mockProduct: Product = {
       brand: parts[0] || "Unknown",
       name: query,
+      model: "",
+      color: "",
       category: "other",
       description: query,
       estimated_price: "Searching…",
       confidence: 70,
+      match_source: "ai",
+      search_query: query,
     };
     setProduct(mockProduct);
     setStage("found");
-    fetchPrices(mockProduct.brand, mockProduct.name);
+    fetchPrices(mockProduct);
   }
 
-  async function fetchPrices(brand: string, name: string) {
+  async function fetchPrices(prod: Product) {
     try {
       const res = await fetch("/api/prices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brand, name }),
+        body: JSON.stringify({
+          brand: prod.brand,
+          name: prod.name,
+          model: prod.model,
+          search_query: prod.search_query,
+        }),
       });
 
       if (!res.ok) return; // Silently fail — prices are optional
@@ -242,7 +255,7 @@ function IdentifiedContent() {
           </div>
 
           <p className="mt-6 text-center text-xs font-light" style={{ fontFamily: "var(--font-inter)", color: "#C4C4C4" }}>
-            Asking GPT-4o to identify this item…
+            Scanning product databases…
           </p>
         </div>
       )}
@@ -303,21 +316,44 @@ function IdentifiedContent() {
                 style={{ background: product.confidence >= 70 ? "#22C55E" : product.confidence >= 40 ? "#F59E0B" : "#EF4444" }}
               />
               <span className="text-[10px] font-medium" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
-                {product.confidence}% match
+                {product.confidence >= 85
+                  ? "Exact match"
+                  : product.confidence >= 70
+                  ? "Strong match"
+                  : product.confidence >= 40
+                  ? "Likely match"
+                  : "Approximate"}
               </span>
             </div>
+
+            {/* Match source pill */}
+            {product.match_source === "lens" && (
+              <div
+                className="absolute left-3 top-3 rounded-full px-2.5 py-1"
+                style={{ background: "rgba(255,255,255,0.9)", backdropFilter: "blur(8px)" }}
+              >
+                <span className="text-[9px] font-medium uppercase tracking-[0.08em]" style={{ fontFamily: "var(--font-space)", color: "#8A8A8A" }}>
+                  Visual match
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Item info */}
           <div className="fade-up-1 mt-6 w-full max-w-sm">
             <p className="text-[10px] font-medium uppercase tracking-[0.2em]" style={{ fontFamily: "var(--font-space)", color: "#E63946" }}>
-              Identified
+              {product.brand}
             </p>
             <h2 className="mt-1 text-2xl font-bold" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
               {product.name}
             </h2>
+            {(product.model || product.color) && (
+              <p className="mt-0.5 text-xs font-medium" style={{ fontFamily: "var(--font-space)", color: "#8A8A8A" }}>
+                {[product.model, product.color].filter(Boolean).join(" · ")}
+              </p>
+            )}
             <p className="mt-0.5 text-sm" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
-              {product.brand} · {product.description}
+              {product.description}
             </p>
             <p className="mt-3 text-2xl font-bold" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
               {product.estimated_price}
