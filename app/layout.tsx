@@ -34,7 +34,7 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
       </head>
-      <body className="h-full bg-white text-[#1A1A1A] antialiased">
+      <body className="h-full antialiased" style={{ background: "#0A0A0A", color: "#F5F5F0" }}>
         <AuthProvider>
           {children}
         </AuthProvider>

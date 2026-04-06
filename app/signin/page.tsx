@@ -27,24 +27,23 @@ export default function SignInPage() {
     if (error) {
       setError(error.message);
     } else {
-      // Check if they've done onboarding
       const onboarded = localStorage.getItem("gimme-onboarded");
       router.push(onboarded ? "/home" : "/onboarding");
     }
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between bg-white px-6 py-14">
+    <main className="flex min-h-screen flex-col items-center justify-between px-6 py-14" style={{ background: "#0A0A0A" }}>
 
       {/* Header */}
       <header className="flex flex-col items-center gap-3">
         <h1
           className="font-display text-lg font-bold uppercase tracking-[0.15em]"
-          style={{ color: "#1A1A1A" }}
+          style={{ color: "#F5F5F0" }}
         >
           GIMME
         </h1>
-        <div className="h-1.5 w-1.5 rounded-full" style={{ background: "#E63946" }} />
+        <div className="h-1.5 w-1.5 rounded-full" style={{ background: "#C8F135" }} />
       </header>
 
       {/* Form */}
@@ -52,19 +51,18 @@ export default function SignInPage() {
         <div className="text-center">
           <h2
             className="text-2xl font-bold"
-            style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}
+            style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}
           >
             Welcome Back
           </h2>
           <p
             className="mt-2 text-sm font-light"
-            style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}
+            style={{ fontFamily: "var(--font-inter)", color: "#666660" }}
           >
             Sign in to see your saved items.
           </p>
         </div>
 
-        {/* Email form */}
         <form onSubmit={handleSignIn} className="flex flex-col gap-3">
           <input
             type="email"
@@ -72,10 +70,10 @@ export default function SignInPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email address"
             required
-            className="w-full rounded-xl py-4 px-4 text-sm outline-none"
-            style={{ fontFamily: "var(--font-inter)", background: "#FAFAFA", border: "1px solid #F0F0F0", color: "#1A1A1A" }}
-            onFocus={(e) => (e.target.style.borderColor = "#E63946")}
-            onBlur={(e) => (e.target.style.borderColor = "#F0F0F0")}
+            className="w-full rounded-xl py-4 px-4 text-sm outline-none transition-colors"
+            style={{ fontFamily: "var(--font-inter)", background: "#141414", border: "1px solid #222222", color: "#F5F5F0" }}
+            onFocus={(e) => (e.target.style.borderColor = "#C8F135")}
+            onBlur={(e) => (e.target.style.borderColor = "#222222")}
           />
           <input
             type="password"
@@ -83,10 +81,10 @@ export default function SignInPage() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
             required
-            className="w-full rounded-xl py-4 px-4 text-sm outline-none"
-            style={{ fontFamily: "var(--font-inter)", background: "#FAFAFA", border: "1px solid #F0F0F0", color: "#1A1A1A" }}
-            onFocus={(e) => (e.target.style.borderColor = "#E63946")}
-            onBlur={(e) => (e.target.style.borderColor = "#F0F0F0")}
+            className="w-full rounded-xl py-4 px-4 text-sm outline-none transition-colors"
+            style={{ fontFamily: "var(--font-inter)", background: "#141414", border: "1px solid #222222", color: "#F5F5F0" }}
+            onFocus={(e) => (e.target.style.borderColor = "#C8F135")}
+            onBlur={(e) => (e.target.style.borderColor = "#222222")}
           />
 
           {error && (
@@ -98,19 +96,19 @@ export default function SignInPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-full py-4 text-xs font-semibold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-85 disabled:opacity-50"
-            style={{ fontFamily: "var(--font-space)", background: "#E63946" }}
+            className="w-full rounded-full py-4 text-xs font-semibold uppercase tracking-[0.2em] transition-opacity hover:opacity-85 disabled:opacity-50"
+            style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
           >
-            {loading ? "Signing in…" : "Sign In"}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
       </section>
 
       {/* Footer */}
       <footer className="flex flex-col items-center gap-3">
-        <p className="text-sm" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
+        <p className="text-sm" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
           Don&rsquo;t have an account?{" "}
-          <Link href="/signup" className="font-medium underline underline-offset-2" style={{ color: "#E63946" }}>
+          <Link href="/signup" className="font-medium underline underline-offset-2" style={{ color: "#C8F135" }}>
             Create one
           </Link>
         </p>

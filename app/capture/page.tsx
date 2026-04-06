@@ -17,18 +17,15 @@ export default function CapturePage() {
   const [capturing, setCapturing] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Redirect if not signed in
   useEffect(() => {
     if (!authLoading && !user) router.replace("/");
   }, [authLoading, user, router]);
 
-  // Start camera when in camera mode
   useEffect(() => {
     if (mode !== "camera") return;
 
     async function startCamera() {
       try {
-        // Ask for the back camera on phones, any camera on desktop
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 960 } },
           audio: false,
@@ -47,7 +44,6 @@ export default function CapturePage() {
 
     startCamera();
 
-    // Stop camera when leaving
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
@@ -57,7 +53,6 @@ export default function CapturePage() {
     };
   }, [mode]);
 
-  // Capture a photo from the video feed
   const handleCapture = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || capturing) return;
 
@@ -71,21 +66,17 @@ export default function CapturePage() {
     if (!ctx) return;
     ctx.drawImage(video, 0, 0);
 
-    // Convert to base64 (JPEG, quality 0.8 to keep file small)
     const base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
 
-    // Stop camera
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
 
-    // Store in sessionStorage so the identified page can access it
     sessionStorage.setItem("gimme-capture", base64);
     router.push("/identified");
   }, [capturing, router]);
 
-  // Handle file upload (fallback for desktop or denied camera)
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -100,11 +91,9 @@ export default function CapturePage() {
     reader.readAsDataURL(file);
   }
 
-  // Search mode handler
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (query.trim()) {
-      // Store search query for identified page
       sessionStorage.setItem("gimme-search-query", query.trim());
       sessionStorage.removeItem("gimme-capture");
       router.push("/identified?q=" + encodeURIComponent(query));
@@ -112,25 +101,25 @@ export default function CapturePage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-white">
+    <main className="flex min-h-screen flex-col" style={{ background: "#0A0A0A" }}>
       {/* Hidden canvas for capturing frames */}
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Header */}
       <header className="flex items-center justify-between px-5 py-4">
-        <Link href="/home" className="text-[#8A8A8A] hover:text-[#1A1A1A] transition-colors">
+        <Link href="/home" className="transition-colors" style={{ color: "#666660" }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
         </Link>
-        <p className="font-display text-sm font-bold uppercase tracking-[0.1em]" style={{ color: "#1A1A1A" }}>
+        <p className="font-display text-sm font-bold uppercase tracking-[0.1em]" style={{ color: "#F5F5F0" }}>
           GIMME
         </p>
         <div className="w-5" />
       </header>
 
       {/* Mode toggle */}
-      <div className="flex items-center gap-0 self-center rounded-full p-1" style={{ background: "#FAFAFA", border: "1px solid #F0F0F0" }}>
+      <div className="flex items-center gap-0 self-center rounded-full p-1" style={{ background: "#141414", border: "1px solid #222222" }}>
         {(["camera", "search"] as const).map((m) => (
           <button
             key={m}
@@ -138,8 +127,8 @@ export default function CapturePage() {
             className="rounded-full px-5 py-2 text-[10px] font-medium uppercase tracking-[0.15em] transition-all"
             style={{
               fontFamily: "var(--font-space)",
-              background: mode === m ? "#1A1A1A" : "transparent",
-              color: mode === m ? "#FFFFFF" : "#8A8A8A",
+              background: mode === m ? "#C8F135" : "transparent",
+              color: mode === m ? "#0A0A0A" : "#666660",
             }}
           >
             {m === "camera" ? "Camera" : "Search"}
@@ -153,7 +142,7 @@ export default function CapturePage() {
           <div className="flex flex-1 flex-col items-center justify-center px-6 py-6">
             <div
               className="relative flex h-[340px] w-full max-w-sm items-center justify-center overflow-hidden rounded-3xl"
-              style={{ background: "#0A0A0A" }}
+              style={{ background: "#141414" }}
             >
               {/* Video feed */}
               <video
@@ -165,63 +154,63 @@ export default function CapturePage() {
                 style={{ display: cameraReady ? "block" : "none" }}
               />
 
-              {/* Viewfinder corners — always visible on top of video */}
+              {/* Viewfinder corners — lime brackets */}
               <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute left-4 top-4 h-6 w-6 border-l-2 border-t-2 rounded-tl-lg" style={{ borderColor: "#E63946" }} />
-                <div className="absolute right-4 top-4 h-6 w-6 border-r-2 border-t-2 rounded-tr-lg" style={{ borderColor: "#E63946" }} />
-                <div className="absolute bottom-4 left-4 h-6 w-6 border-l-2 border-b-2 rounded-bl-lg" style={{ borderColor: "#E63946" }} />
-                <div className="absolute bottom-4 right-4 h-6 w-6 border-r-2 border-b-2 rounded-br-lg" style={{ borderColor: "#E63946" }} />
+                <div className="absolute left-4 top-4 h-8 w-8 border-l-2 border-t-2 rounded-tl-sm" style={{ borderColor: "#C8F135" }} />
+                <div className="absolute right-4 top-4 h-8 w-8 border-r-2 border-t-2 rounded-tr-sm" style={{ borderColor: "#C8F135" }} />
+                <div className="absolute bottom-4 left-4 h-8 w-8 border-l-2 border-b-2 rounded-bl-sm" style={{ borderColor: "#C8F135" }} />
+                <div className="absolute bottom-4 right-4 h-8 w-8 border-r-2 border-b-2 rounded-br-sm" style={{ borderColor: "#C8F135" }} />
               </div>
 
               {/* Loading / error states */}
               {!cameraReady && !cameraError && (
                 <div className="flex flex-col items-center gap-3">
-                  <div className="h-6 w-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#E63946", borderTopColor: "transparent" }} />
-                  <p className="text-xs" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
-                    Starting camera…
+                  <div className="h-0.5 w-16 overflow-hidden rounded-full" style={{ background: "#222222" }}>
+                    <div className="h-full w-1/3 rounded-full loading-bar" style={{ background: "#C8F135" }} />
+                  </div>
+                  <p className="text-xs" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
+                    Starting camera...
                   </p>
                 </div>
               )}
 
               {cameraError && (
                 <div className="flex flex-col items-center gap-3 px-6 text-center">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#8A8A8A" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#666660" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                     <circle cx="12" cy="13" r="4" />
                   </svg>
-                  <p className="text-xs" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
+                  <p className="text-xs" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
                     {cameraError}
                   </p>
                 </div>
               )}
 
-              {/* Capturing flash */}
+              {/* Capturing flash — dark instead of white */}
               {capturing && (
-                <div className="absolute inset-0 bg-white animate-pulse" />
+                <div className="absolute inset-0 animate-pulse" style={{ background: "rgba(200,241,53,0.08)" }} />
               )}
             </div>
 
-            <p className="mt-4 text-center text-xs font-light" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
-              Point at the item you want — GIMME will identify it instantly.
+            <p className="mt-4 text-center text-[10px] font-medium uppercase tracking-[0.2em]" style={{ fontFamily: "var(--font-space)", color: "#666660" }}>
+              Point at anything
             </p>
           </div>
 
           {/* Bottom actions */}
           <div className="flex flex-col items-center gap-3 pb-10">
-            {/* Shutter button */}
+            {/* Shutter button — lime ring, warm white center */}
             <button
               onClick={handleCapture}
               disabled={!cameraReady || capturing}
-              className="flex h-20 w-20 items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-90 disabled:opacity-40"
-              style={{ background: "#E63946" }}
+              className="flex h-20 w-20 items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-90 disabled:opacity-40 pulse-ring"
+              style={{ background: "transparent", border: "3px solid #C8F135" }}
             >
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white">
-                <div className="h-10 w-10 rounded-full bg-white" />
-              </div>
+              <div className="h-14 w-14 rounded-full" style={{ background: "#F5F5F0" }} />
             </button>
 
             {/* Upload fallback */}
-            <label className="cursor-pointer text-[10px] font-medium underline underline-offset-2" style={{ fontFamily: "var(--font-space)", color: "#C4C4C4" }}>
+            <label className="cursor-pointer text-[10px] font-medium uppercase tracking-[0.15em] underline underline-offset-2" style={{ fontFamily: "var(--font-space)", color: "#666660" }}>
               Or upload a photo
               <input
                 type="file"
@@ -238,7 +227,7 @@ export default function CapturePage() {
           <div className="flex flex-1 flex-col items-center px-6 py-8">
             <form onSubmit={handleSearch} className="w-full max-w-sm">
               <div className="relative">
-                <svg className="absolute left-4 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C4C4C4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="absolute left-4 top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666660" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
                 </svg>
                 <input
@@ -247,18 +236,18 @@ export default function CapturePage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder='Try "Cartier Santos" or "black Nike sneakers"'
-                  className="w-full rounded-xl py-4 pl-11 pr-4 text-sm outline-none"
-                  style={{ fontFamily: "var(--font-inter)", background: "#FAFAFA", border: "1px solid #F0F0F0", color: "#1A1A1A" }}
-                  onFocus={(e) => (e.target.style.borderColor = "#E63946")}
-                  onBlur={(e) => (e.target.style.borderColor = "#F0F0F0")}
+                  className="w-full rounded-xl py-4 pl-11 pr-4 text-sm outline-none transition-colors"
+                  style={{ fontFamily: "var(--font-inter)", background: "#141414", border: "1px solid #222222", color: "#F5F5F0" }}
+                  onFocus={(e) => (e.target.style.borderColor = "#C8F135")}
+                  onBlur={(e) => (e.target.style.borderColor = "#222222")}
                 />
               </div>
 
               {query.trim() && (
                 <button
                   type="submit"
-                  className="mt-4 w-full rounded-full py-3.5 text-xs font-semibold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-85"
-                  style={{ fontFamily: "var(--font-space)", background: "#E63946" }}
+                  className="mt-4 w-full rounded-full py-3.5 text-xs font-semibold uppercase tracking-[0.2em] transition-opacity hover:opacity-85"
+                  style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
                 >
                   Find It
                 </button>

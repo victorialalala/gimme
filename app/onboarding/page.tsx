@@ -7,9 +7,9 @@ import { useAuth } from "../components/AuthProvider";
 const STEPS = [
   {
     label: "Spot It",
-    body: "See something you love on a friend?\nOpen GIMME and tap the camera.",
+    body: "See something you love on a friend?\nOpen GIMME and tap the button.",
     icon: (
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#E63946" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C8F135" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10" />
         <circle cx="12" cy="12" r="4" />
         <line x1="21.17" y1="8" x2="12" y2="8" opacity="0.4" />
@@ -22,7 +22,7 @@ const STEPS = [
     label: "Save It",
     body: "GIMME identifies it instantly\nand adds it to your collection.",
     icon: (
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#E63946" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C8F135" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
       </svg>
     ),
@@ -31,7 +31,7 @@ const STEPS = [
     label: "Get It",
     body: "When you\u2019re ready, tap any item\nto see the best prices and buy\nin one tap.",
     icon: (
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#E63946" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C8F135" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="1" y="4" width="22" height="16" rx="2" />
         <line x1="1" y1="10" x2="23" y2="10" />
       </svg>
@@ -46,7 +46,6 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (loading) return;
-    // If not signed in, send them back to sign up
     if (!user) {
       router.replace("/");
       return;
@@ -66,17 +65,17 @@ export default function OnboardingPage() {
   if (!show) return null;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between bg-white px-6 py-14">
+    <main className="flex min-h-screen flex-col items-center justify-between px-6 py-14" style={{ background: "#0A0A0A" }}>
 
       {/* Wordmark */}
       <header className="flex flex-col items-center gap-3">
         <h1
           className="font-display text-lg font-bold uppercase tracking-[0.15em]"
-          style={{ color: "#1A1A1A" }}
+          style={{ color: "#F5F5F0" }}
         >
           GIMME
         </h1>
-        <div className="h-1.5 w-1.5 rounded-full" style={{ background: "#E63946" }} />
+        <div className="h-1.5 w-1.5 rounded-full" style={{ background: "#C8F135" }} />
       </header>
 
       {/* Steps */}
@@ -90,23 +89,21 @@ export default function OnboardingPage() {
               opacity: 0,
             }}
           >
-            {/* Step number + icon */}
             <div className="flex flex-col items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "#FDEBED" }}>
+              <div className="flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "#141414", border: "1px solid #222222" }}>
                 {step.icon}
               </div>
               <p
                 className="font-display text-xs font-semibold uppercase tracking-[0.25em]"
-                style={{ color: "#E63946" }}
+                style={{ color: "#C8F135" }}
               >
                 Step {i + 1} &mdash; {step.label}
               </p>
             </div>
 
-            {/* Body */}
             <p
               className="text-sm font-light leading-relaxed whitespace-pre-line"
-              style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}
+              style={{ fontFamily: "var(--font-inter)", color: "#666660" }}
             >
               {step.body}
             </p>
@@ -118,10 +115,11 @@ export default function OnboardingPage() {
       <footer className="w-full max-w-sm">
         <button
           onClick={handleGo}
-          className="block w-full rounded-full py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-85 active:opacity-70"
+          className="block w-full rounded-full py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] transition-opacity hover:opacity-85 active:opacity-70"
           style={{
             fontFamily: "var(--font-space)",
-            background: "#E63946",
+            background: "#C8F135",
+            color: "#0A0A0A",
             animation: "fadeUp 0.5s ease 0.6s forwards",
             opacity: 0,
           }}
@@ -129,14 +127,6 @@ export default function OnboardingPage() {
           Let&rsquo;s go
         </button>
       </footer>
-
-      {/* Inline keyframes for staggered fade */}
-      <style>{`
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </main>
   );
 }

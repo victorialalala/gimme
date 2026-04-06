@@ -38,7 +38,6 @@ function ItemContent() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
 
-  // Load item from Supabase
   useEffect(() => {
     if (!user || !itemId) return;
 
@@ -59,7 +58,6 @@ function ItemContent() {
       setItem(data);
       setLoading(false);
 
-      // Fetch live prices in the background
       try {
         const res = await fetch("/api/prices", {
           method: "POST",
@@ -97,7 +95,6 @@ function ItemContent() {
     }
   }
 
-  // Format date
   function formatDate(dateStr: string) {
     const d = new Date(dateStr);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -105,17 +102,19 @@ function ItemContent() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-white">
-        <div className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#E63946", borderTopColor: "transparent" }} />
+      <main className="flex min-h-screen items-center justify-center" style={{ background: "#0A0A0A" }}>
+        <div className="h-0.5 w-24 overflow-hidden rounded-full" style={{ background: "#222222" }}>
+          <div className="h-full w-1/3 rounded-full loading-bar" style={{ background: "#C8F135" }} />
+        </div>
       </main>
     );
   }
 
   if (!item) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6 text-center">
-        <p className="text-sm" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>Item not found.</p>
-        <Link href="/home" className="mt-4 text-xs font-medium underline underline-offset-2" style={{ color: "#E63946" }}>
+      <main className="flex min-h-screen flex-col items-center justify-center px-6 text-center" style={{ background: "#0A0A0A" }}>
+        <p className="text-sm" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>Item not found.</p>
+        <Link href="/home" className="mt-4 text-xs font-medium underline underline-offset-2" style={{ color: "#C8F135" }}>
           Back to home
         </Link>
       </main>
@@ -123,22 +122,23 @@ function ItemContent() {
   }
 
   return (
-    <main className="min-h-screen bg-white pb-12">
+    <main className="min-h-screen pb-12" style={{ background: "#0A0A0A" }}>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 flex items-center justify-between bg-white/90 px-5 py-4 backdrop-blur-sm">
-        <Link href="/home" className="text-[#8A8A8A] hover:text-[#1A1A1A] transition-colors">
+      <header className="sticky top-0 z-40 flex items-center justify-between px-5 py-4 backdrop-blur-sm" style={{ background: "rgba(10,10,10,0.9)" }}>
+        <Link href="/home" className="transition-colors" style={{ color: "#666660" }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5M5 12l7 7M5 12l7-7" />
           </svg>
         </Link>
-        <p className="font-display text-sm font-bold uppercase tracking-[0.1em]" style={{ color: "#1A1A1A" }}>
+        <p className="font-display text-sm font-bold uppercase tracking-[0.1em]" style={{ color: "#F5F5F0" }}>
           GIMME
         </p>
         <button
           onClick={handleDelete}
           disabled={deleting}
-          className="text-[#C4C4C4] hover:text-[#E63946] transition-colors"
+          className="transition-colors"
+          style={{ color: "#666660" }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -149,12 +149,12 @@ function ItemContent() {
       {/* Product image */}
       <div
         className="mx-4 flex h-[300px] items-center justify-center overflow-hidden rounded-3xl"
-        style={{ background: item.bg_color || "#F5F0EB" }}
+        style={{ background: "#141414" }}
       >
         {item.image_url ? (
           <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
         ) : (
-          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#C4C4C4" strokeWidth="0.6">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#222222" strokeWidth="0.6">
             <rect x="3" y="3" width="18" height="18" rx="3" />
             <circle cx="8.5" cy="8.5" r="1.5" />
             <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
@@ -164,45 +164,45 @@ function ItemContent() {
 
       {/* Product info */}
       <div className="px-5 pt-5">
-        <p className="text-xs font-medium uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-space)", color: "#8A8A8A" }}>
+        <p className="text-[10px] font-medium uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-space)", color: "#C8F135" }}>
           {item.brand}
         </p>
-        <h1 className="mt-1 text-2xl font-bold" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
+        <h1 className="mt-1 text-2xl font-bold" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
           {item.name}
         </h1>
         {item.description && (
-          <p className="mt-1 text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
+          <p className="mt-1 text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
             {item.description}
           </p>
         )}
 
         {/* Collection badge + date */}
         <div className="mt-3 flex items-center gap-2">
-          <span className="rounded-full px-3 py-1 text-[10px] font-medium capitalize" style={{ fontFamily: "var(--font-space)", background: "#FDEBED", color: "#E63946" }}>
+          <span className="rounded-full px-3 py-1 text-[10px] font-medium capitalize uppercase tracking-[0.1em]" style={{ fontFamily: "var(--font-space)", background: "#141414", border: "1px solid #222222", color: "#C8F135" }}>
             {item.collection || "Saved"}
           </span>
-          <span className="text-[10px]" style={{ fontFamily: "var(--font-inter)", color: "#C4C4C4" }}>
+          <span className="text-[10px]" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
             Saved {formatDate(item.created_at)}
           </span>
         </div>
 
-        {/* Price */}
-        <p className="mt-4 text-3xl font-bold" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
+        {/* Price — hero number */}
+        <p className="mt-5 text-3xl font-bold" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
           {item.price}
         </p>
       </div>
 
       {/* Divider */}
-      <div className="mx-5 my-5 h-px" style={{ background: "#F0F0F0" }} />
+      <div className="mx-5 my-5 h-px" style={{ background: "#222222" }} />
 
       {/* Price comparison */}
       {retailers.length > 0 ? (
         <div className="px-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold uppercase tracking-[0.1em]" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
+            <h2 className="text-[10px] font-medium uppercase tracking-[0.2em]" style={{ fontFamily: "var(--font-space)", color: "#666660" }}>
               Compare Prices
             </h2>
-            <p className="text-[10px]" style={{ fontFamily: "var(--font-inter)", color: "#C4C4C4" }}>
+            <p className="text-[10px] uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-space)", color: "#666660" }}>
               Live prices
             </p>
           </div>
@@ -214,21 +214,21 @@ function ItemContent() {
                 href={r.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between rounded-2xl px-4 py-4 transition-colors hover:bg-[#FAFAFA]"
+                className="flex items-center justify-between rounded-xl px-4 py-4 transition-colors tap-highlight"
                 style={{
-                  border: r.tag ? "1.5px solid #E63946" : "1px solid #F0F0F0",
-                  background: r.tag ? "#FDEBED" : "white",
+                  border: r.tag ? "1px solid #C8F135" : "1px solid #222222",
+                  background: r.tag ? "rgba(200,241,53,0.05)" : "#141414",
                 }}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium truncate" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
+                    <p className="text-sm font-medium truncate" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
                       {r.retailer}
                     </p>
                     {r.tag && (
                       <span
                         className="flex-shrink-0 rounded-full px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.08em]"
-                        style={{ fontFamily: "var(--font-space)", background: "#E63946", color: "#FFFFFF" }}
+                        style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
                       >
                         {r.tag}
                       </span>
@@ -236,10 +236,10 @@ function ItemContent() {
                   </div>
                 </div>
                 <div className="ml-3 flex items-center gap-2 flex-shrink-0">
-                  <p className="text-lg font-bold" style={{ fontFamily: "var(--font-space)", color: r.tag ? "#E63946" : "#1A1A1A" }}>
+                  <p className="text-lg font-bold" style={{ fontFamily: "var(--font-space)", color: r.tag ? "#C8F135" : "#F5F5F0" }}>
                     {r.price}
                   </p>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={r.tag ? "#E63946" : "#C4C4C4"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C8F135" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M5 12h14M12 5l7 7-7 7" />
                   </svg>
                 </div>
@@ -249,27 +249,29 @@ function ItemContent() {
         </div>
       ) : (
         <div className="px-5">
-          <div className="flex items-center gap-2 rounded-2xl px-4 py-4" style={{ background: "#FAFAFA" }}>
-            <div className="h-4 w-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#C4C4C4", borderTopColor: "transparent" }} />
-            <p className="text-xs" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
-              Searching for prices…
+          <div className="flex items-center gap-2 rounded-xl px-4 py-4" style={{ background: "#141414", border: "1px solid #222222" }}>
+            <div className="h-0.5 w-8 overflow-hidden rounded-full" style={{ background: "#222222" }}>
+              <div className="h-full w-1/3 rounded-full loading-bar" style={{ background: "#C8F135" }} />
+            </div>
+            <p className="text-[10px] uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-space)", color: "#666660" }}>
+              Searching for prices...
             </p>
           </div>
         </div>
       )}
 
       {/* Divider */}
-      <div className="mx-5 my-5 h-px" style={{ background: "#F0F0F0" }} />
+      <div className="mx-5 my-5 h-px" style={{ background: "#222222" }} />
 
       {/* Delete */}
       <div className="px-5">
         <button
           onClick={handleDelete}
           disabled={deleting}
-          className="w-full rounded-full border py-3.5 text-xs font-medium uppercase tracking-[0.15em] transition-colors hover:bg-[#FDEBED]"
-          style={{ fontFamily: "var(--font-space)", borderColor: "#F0F0F0", color: "#E63946" }}
+          className="w-full rounded-full border py-3.5 text-xs font-medium uppercase tracking-[0.15em] transition-colors"
+          style={{ fontFamily: "var(--font-space)", borderColor: "#222222", color: "#E63946" }}
         >
-          {deleting ? "Removing…" : "Remove from Collection"}
+          {deleting ? "Removing..." : "Remove from Collection"}
         </button>
       </div>
     </main>

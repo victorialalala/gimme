@@ -16,8 +16,6 @@ type SavedItem = {
   image_url: string | null;
 };
 
-const PASTEL_BGS = ["#F5F0EB", "#EBF0F5", "#F0F5EB", "#F5EBF0", "#F0EBEB", "#EBEBF0", "#F5F2EB", "#EBF5F2"];
-
 export default function HomePage() {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
@@ -27,22 +25,18 @@ export default function HomePage() {
   const [showSettings, setShowSettings] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
 
-  // New collection modal
   const [showNewCollection, setShowNewCollection] = useState(false);
   const [newName, setNewName] = useState("");
 
-  // Edit collection modal
   const [editingCollection, setEditingCollection] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
 
-  // Redirect to welcome if not signed in
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace("/");
     }
   }, [authLoading, user, router]);
 
-  // Load items from Supabase
   useEffect(() => {
     if (!user) return;
     loadData();
@@ -59,18 +53,16 @@ export default function HomePage() {
         .order("created_at", { ascending: false });
 
       if (!error && savedItems) {
-        const mapped = savedItems.map((item, i) => ({
+        const mapped = savedItems.map((item) => ({
           id: item.id,
           name: item.name,
           brand: item.brand,
           price: item.price,
           collection: item.collection || "other",
-          bg: item.bg_color || PASTEL_BGS[i % PASTEL_BGS.length],
+          bg: "#141414",
           image_url: item.image_url,
         }));
         setItems(mapped);
-
-        // Build unique collection names from saved items
         const uniqueCollections = [...new Set(mapped.map((i) => i.collection))].filter(Boolean);
         setCollections(uniqueCollections);
       }
@@ -81,42 +73,34 @@ export default function HomePage() {
     setDataLoading(false);
   }
 
-  // Rename all items in a collection
   async function handleRenameCollection() {
     if (!user || !editingCollection || !editName.trim()) return;
-
     const newSlug = editName.trim().toLowerCase();
     await supabase
       .from("saved_items")
       .update({ collection: newSlug })
       .eq("user_id", user.id)
       .eq("collection", editingCollection);
-
     setEditingCollection(null);
     setEditName("");
     if (active === editingCollection) setActive(newSlug);
     loadData();
   }
 
-  // Delete all items in a collection
   async function handleDeleteCollection() {
     if (!user || !editingCollection) return;
-
     const confirmed = window.confirm(`Delete all items in "${editingCollection}"?`);
     if (!confirmed) return;
-
     await supabase
       .from("saved_items")
       .delete()
       .eq("user_id", user.id)
       .eq("collection", editingCollection);
-
     setEditingCollection(null);
     setActive("all");
     loadData();
   }
 
-  // Create new empty collection (just switches to it)
   function handleCreateCollection() {
     if (!newName.trim()) return;
     const slug = newName.trim().toLowerCase();
@@ -132,29 +116,33 @@ export default function HomePage() {
 
   if (authLoading || dataLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-white">
+      <main className="flex min-h-screen items-center justify-center" style={{ background: "#0A0A0A" }}>
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#E63946", borderTopColor: "transparent" }} />
-          <p className="text-xs" style={{ fontFamily: "var(--font-inter)", color: "#C4C4C4" }}>Loading your collection…</p>
+          {/* Lime loading bar */}
+          <div className="h-0.5 w-32 overflow-hidden rounded-full" style={{ background: "#222222" }}>
+            <div className="h-full w-1/3 rounded-full loading-bar" style={{ background: "#C8F135" }} />
+          </div>
+          <p className="text-xs" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>Loading your collection...</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-white pb-28">
+    <main className="min-h-screen pb-28" style={{ background: "#0A0A0A" }}>
 
-      {/* Header */}
-      <header className="sticky top-0 z-40 flex items-center justify-between bg-white/90 px-5 py-4 backdrop-blur-sm">
+      {/* Header — generous top padding */}
+      <header className="sticky top-0 z-40 flex items-center justify-between px-5 pt-6 pb-4 backdrop-blur-sm" style={{ background: "rgba(10,10,10,0.9)" }}>
         <h1
           className="font-display text-xl font-bold uppercase tracking-[0.1em]"
-          style={{ color: "#1A1A1A" }}
+          style={{ color: "#F5F5F0" }}
         >
           GIMME
         </h1>
         <button
           onClick={() => setShowSettings(!showSettings)}
-          className="text-[#8A8A8A] hover:text-[#1A1A1A] transition-colors"
+          className="transition-colors"
+          style={{ color: "#666660" }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3" />
@@ -166,22 +154,22 @@ export default function HomePage() {
       {/* Settings dropdown */}
       {showSettings && (
         <div
-          className="absolute right-4 top-14 z-50 flex flex-col rounded-2xl bg-white p-2 shadow-lg"
-          style={{ border: "1px solid #F0F0F0", minWidth: "180px" }}
+          className="absolute right-4 top-16 z-50 flex flex-col rounded-2xl p-2"
+          style={{ background: "#1A1A1A", border: "1px solid #222222", minWidth: "180px" }}
         >
           <div className="px-3 py-2">
-            <p className="text-xs font-medium truncate" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
+            <p className="text-xs font-medium truncate" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
               {user?.email}
             </p>
           </div>
-          <div className="h-px" style={{ background: "#F0F0F0" }} />
+          <div className="h-px" style={{ background: "#222222" }} />
           <button
             onClick={async () => {
               await signOut();
               localStorage.removeItem("gimme-onboarded");
               router.replace("/");
             }}
-            className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs transition-colors hover:bg-[#FAFAFA]"
+            className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs transition-colors tap-highlight"
             style={{ fontFamily: "var(--font-space)", color: "#E63946" }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -194,28 +182,26 @@ export default function HomePage() {
 
       {/* Subhead */}
       <div className="px-5 pb-2">
-        <p className="text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
+        <p className="text-xs font-light uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-space)", color: "#666660" }}>
           {items.length} {items.length === 1 ? "item" : "items"} saved
         </p>
       </div>
 
       {/* Collection pills */}
       <div className="flex gap-2 overflow-x-auto px-5 pb-4 pt-1 scrollbar-none">
-        {/* All pill */}
         <button
           onClick={() => setActive("all")}
-          className="flex-shrink-0 rounded-full px-4 py-2 text-xs font-medium transition-all"
+          className="flex-shrink-0 rounded-full px-4 py-2 text-[10px] font-medium uppercase tracking-[0.15em] transition-all"
           style={{
             fontFamily: "var(--font-space)",
-            background: active === "all" ? "#E63946" : "#FAFAFA",
-            color: active === "all" ? "#FFFFFF" : "#8A8A8A",
-            border: active === "all" ? "none" : "1px solid #F0F0F0",
+            background: active === "all" ? "#C8F135" : "#141414",
+            color: active === "all" ? "#0A0A0A" : "#666660",
+            border: active === "all" ? "1px solid #C8F135" : "1px solid #222222",
           }}
         >
           All
         </button>
 
-        {/* Dynamic collection pills */}
         {collections.map((c) => (
           <button
             key={c}
@@ -224,23 +210,22 @@ export default function HomePage() {
               setEditingCollection(c);
               setEditName(c);
             }}
-            className="flex-shrink-0 rounded-full px-4 py-2 text-xs font-medium capitalize transition-all"
+            className="flex-shrink-0 rounded-full px-4 py-2 text-[10px] font-medium capitalize uppercase tracking-[0.15em] transition-all"
             style={{
               fontFamily: "var(--font-space)",
-              background: active === c ? "#E63946" : "#FAFAFA",
-              color: active === c ? "#FFFFFF" : "#8A8A8A",
-              border: active === c ? "none" : "1px solid #F0F0F0",
+              background: active === c ? "#C8F135" : "#141414",
+              color: active === c ? "#0A0A0A" : "#666660",
+              border: active === c ? "1px solid #C8F135" : "1px solid #222222",
             }}
           >
             {c}
           </button>
         ))}
 
-        {/* Add collection button */}
         <button
           onClick={() => setShowNewCollection(true)}
-          className="flex flex-shrink-0 items-center gap-1 rounded-full px-3 py-2 text-xs transition-colors hover:bg-[#FAFAFA]"
-          style={{ fontFamily: "var(--font-space)", color: "#C4C4C4", border: "1px dashed #E0E0E0" }}
+          className="flex flex-shrink-0 items-center gap-1 rounded-full px-3 py-2 text-[10px] uppercase tracking-[0.15em] transition-colors"
+          style={{ fontFamily: "var(--font-space)", color: "#666660", border: "1px dashed #222222" }}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M12 5v14M5 12h14" />
@@ -249,35 +234,32 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* Edit collection bar — shows when double-tapping a pill */}
+      {/* Edit collection bar */}
       {editingCollection && (
-        <div className="mx-4 mb-4 flex items-center gap-2 rounded-2xl p-3" style={{ background: "#FAFAFA", border: "1px solid #F0F0F0" }}>
+        <div className="mx-4 mb-4 flex items-center gap-2 rounded-2xl p-3" style={{ background: "#141414", border: "1px solid #222222" }}>
           <input
             autoFocus
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleRenameCollection()}
-            className="flex-1 rounded-lg bg-white px-3 py-2 text-sm outline-none"
-            style={{ fontFamily: "var(--font-inter)", border: "1px solid #F0F0F0", color: "#1A1A1A" }}
+            className="flex-1 rounded-lg px-3 py-2 text-sm outline-none"
+            style={{ fontFamily: "var(--font-inter)", background: "#1A1A1A", border: "1px solid #222222", color: "#F5F5F0" }}
           />
           <button
             onClick={handleRenameCollection}
-            className="rounded-full px-3 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-white"
-            style={{ fontFamily: "var(--font-space)", background: "#E63946" }}
+            className="rounded-full px-3 py-2 text-[10px] font-medium uppercase tracking-[0.1em]"
+            style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
           >
             Save
           </button>
           <button
             onClick={handleDeleteCollection}
             className="rounded-full px-3 py-2 text-[10px] font-medium uppercase tracking-[0.1em]"
-            style={{ fontFamily: "var(--font-space)", color: "#E63946", border: "1px solid #F0F0F0" }}
+            style={{ fontFamily: "var(--font-space)", color: "#E63946", border: "1px solid #222222" }}
           >
             Delete
           </button>
-          <button
-            onClick={() => setEditingCollection(null)}
-            className="text-[#C4C4C4]"
-          >
+          <button onClick={() => setEditingCollection(null)} style={{ color: "#666660" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
@@ -287,17 +269,17 @@ export default function HomePage() {
 
       {/* New collection modal */}
       {showNewCollection && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6" onClick={() => setShowNewCollection(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6" style={{ background: "rgba(10,10,10,0.8)" }} onClick={() => setShowNewCollection(false)}>
           <div
-            className="w-full max-w-sm rounded-3xl bg-white p-6"
+            className="w-full max-w-sm rounded-3xl p-6"
             onClick={(e) => e.stopPropagation()}
-            style={{ border: "1px solid #F0F0F0" }}
+            style={{ background: "#1A1A1A", border: "1px solid #222222" }}
           >
-            <h3 className="text-lg font-bold mb-1" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
+            <h3 className="text-lg font-bold mb-1" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
               New Collection
             </h3>
-            <p className="text-xs font-light mb-4" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
-              Give it a name — you can change it later.
+            <p className="text-xs font-light mb-4" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
+              Give it a name - you can change it later.
             </p>
             <input
               autoFocus
@@ -306,20 +288,20 @@ export default function HomePage() {
               onKeyDown={(e) => e.key === "Enter" && handleCreateCollection()}
               placeholder="e.g. Birthday Wishlist"
               className="w-full rounded-xl py-3 px-4 text-sm outline-none mb-4"
-              style={{ fontFamily: "var(--font-inter)", background: "#FAFAFA", border: "1px solid #F0F0F0", color: "#1A1A1A" }}
+              style={{ fontFamily: "var(--font-inter)", background: "#141414", border: "1px solid #222222", color: "#F5F5F0" }}
             />
             <div className="flex gap-2">
               <button
                 onClick={() => setShowNewCollection(false)}
                 className="flex-1 rounded-full py-3 text-xs font-medium uppercase tracking-[0.15em]"
-                style={{ fontFamily: "var(--font-space)", color: "#8A8A8A", border: "1px solid #F0F0F0" }}
+                style={{ fontFamily: "var(--font-space)", color: "#666660", border: "1px solid #222222" }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateCollection}
-                className="flex-1 rounded-full py-3 text-xs font-semibold uppercase tracking-[0.15em] text-white"
-                style={{ fontFamily: "var(--font-space)", background: "#E63946" }}
+                className="flex-1 rounded-full py-3 text-xs font-semibold uppercase tracking-[0.15em]"
+                style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
               >
                 Create
               </button>
@@ -328,30 +310,31 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Item grid */}
+      {/* Item grid — 2 columns */}
       <div className="grid grid-cols-2 gap-3 px-4">
         {filtered.map((item) => (
           <Link
             href={`/item?id=${item.id}`}
             key={item.id}
-            className="group flex flex-col overflow-hidden rounded-2xl transition-transform hover:scale-[1.02] active:scale-[0.98]"
-            style={{ border: "1px solid #F0F0F0" }}
+            className="group flex flex-col overflow-hidden rounded-xl transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            style={{ background: "#141414", border: "1px solid #222222" }}
           >
             {/* Image area */}
             <div
               className="relative flex h-44 w-full items-center justify-center"
-              style={{ background: item.bg }}
+              style={{ background: "#141414" }}
             >
+              {/* Brand pill overlaid on image */}
               <span
-                className="absolute left-2.5 top-2.5 rounded-full bg-white/80 px-2.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.1em] backdrop-blur-sm"
-                style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}
+                className="absolute left-2.5 top-2.5 z-10 rounded-full px-2.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.15em] backdrop-blur-sm"
+                style={{ fontFamily: "var(--font-space)", background: "rgba(10,10,10,0.7)", color: "#C8F135" }}
               >
                 {item.brand}
               </span>
               {item.image_url ? (
                 <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
               ) : (
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C4C4C4" strokeWidth="0.8">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#222222" strokeWidth="0.8">
                   <rect x="3" y="3" width="18" height="18" rx="3" />
                   <circle cx="8.5" cy="8.5" r="1.5" />
                   <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
@@ -361,13 +344,13 @@ export default function HomePage() {
 
             {/* Info */}
             <div className="flex flex-col gap-0.5 px-3 py-3">
-              <p className="text-sm font-medium leading-tight" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
+              <p className="text-sm font-medium leading-tight" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
                 {item.name}
               </p>
-              <p className="text-xs" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
+              <p className="text-xs" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
                 {item.brand}
               </p>
-              <p className="mt-1 text-sm font-semibold" style={{ fontFamily: "var(--font-space)", color: "#E63946" }}>
+              <p className="mt-1 text-sm font-semibold" style={{ fontFamily: "var(--font-space)", color: "#C8F135" }}>
                 {item.price}
               </p>
             </div>
@@ -378,17 +361,17 @@ export default function HomePage() {
       {/* Empty state */}
       {items.length === 0 && (
         <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "#FAFAFA" }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C4C4C4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "#141414", border: "1px solid #222222" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666660" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
               <circle cx="12" cy="13" r="4" />
             </svg>
           </div>
-          <h2 className="text-lg font-bold" style={{ fontFamily: "var(--font-space)", color: "#1A1A1A" }}>
+          <h2 className="text-lg font-bold" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
             No items yet
           </h2>
-          <p className="text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
-            Tap the camera below to snap your first item.
+          <p className="text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
+            Tap GIMME below to snap your first item.
           </p>
         </div>
       )}
@@ -396,22 +379,27 @@ export default function HomePage() {
       {/* Empty filtered state */}
       {items.length > 0 && filtered.length === 0 && (
         <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-          <p className="text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#8A8A8A" }}>
+          <p className="text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
             No items in this collection yet.
           </p>
         </div>
       )}
 
-      {/* FAB — capture button */}
+      {/* FAB — GIMME wordmark button */}
       <Link
         href="/capture"
-        className="fixed bottom-8 left-1/2 z-50 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95"
-        style={{ background: "#E63946" }}
+        className="fixed bottom-8 left-1/2 z-50 flex h-[72px] w-[72px] -translate-x-1/2 items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-95"
+        style={{
+          background: "#C8F135",
+          boxShadow: "0 4px 24px rgba(200,241,53,0.25), 0 0 0 1px rgba(200,241,53,0.1)",
+        }}
       >
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-          <circle cx="12" cy="13" r="4" />
-        </svg>
+        <span
+          className="font-display text-[11px] font-bold uppercase tracking-[0.08em]"
+          style={{ color: "#0A0A0A" }}
+        >
+          GIMME
+        </span>
       </Link>
 
     </main>

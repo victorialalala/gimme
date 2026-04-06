@@ -1,41 +1,39 @@
-/* Tailwind loaded via CDN in layout.tsx */
-
-/* ─── GIMME Design Tokens ─────────────────────────────────────────────────── */
+/* ─── GIMME Design Tokens — Dark Luxury Editorial ────────────────────────── */
 
 :root {
-  --coral:     #E63946;   /* confident coral-red accent */
-  --coral-lt:  #FDEBED;   /* barely-there coral tint */
-  --coral-dk:  #B82D38;   /* pressed / hover state */
-  --ink:       #1A1A1A;   /* primary text */
-  --mid:       #8A8A8A;   /* secondary text */
-  --soft:      #C4C4C4;   /* placeholders */
-  --line:      #F0F0F0;   /* borders, dividers */
-  --bg:        #FFFFFF;   /* background */
-  --surface:   #FAFAFA;   /* cards, elevated surfaces */
+  --base:      #0A0A0A;   /* true near-black, everywhere */
+  --card:      #141414;   /* card / surface */
+  --elevated:  #1A1A1A;   /* elevated surface */
+  --text:      #F5F5F0;   /* warm white primary text */
+  --muted:     #666660;   /* secondary / muted text */
+  --accent:    #C8F135;   /* the ONLY color — sharp lime */
+  --border:    #222222;   /* borders, dividers */
+  --scrim:     rgba(10,10,10,0.8); /* overlay */
+  --error:     #E63946;   /* destructive states only */
 }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 
 body {
-  background: var(--bg);
-  color: var(--ink);
+  background: var(--base);
+  color: var(--text);
   font-family: var(--font-inter), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* GIMME wordmark class */
+/* GIMME wordmark class — UNTOUCHED font, just color adapts */
 .font-display {
   font-family: var(--font-space), system-ui, sans-serif;
 }
 
-/* Shimmer animation for the AI scanning effect */
+/* Shimmer — lime scan line */
 @keyframes scan {
   0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 .scan-shimmer {
-  background: linear-gradient(90deg, transparent 30%, rgba(230,57,70,0.12) 50%, transparent 70%);
+  background: linear-gradient(90deg, transparent 30%, rgba(200,241,53,0.06) 50%, transparent 70%);
   background-size: 200% 100%;
   animation: scan 2s ease-in-out infinite;
 }
@@ -51,9 +49,40 @@ body {
 .fade-up-3 { animation: fade-up 0.4s ease 0.24s forwards; opacity: 0; }
 .fade-up-4 { animation: fade-up 0.4s ease 0.32s forwards; opacity: 0; }
 
-/* Pulse for capture button */
+/* Pulse ring — lime accent */
 @keyframes pulse-ring {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(230,57,70,0.35); }
-  50%       { box-shadow: 0 0 0 10px rgba(230,57,70,0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(200,241,53,0.3); }
+  50%       { box-shadow: 0 0 0 10px rgba(200,241,53,0); }
 }
 .pulse-ring { animation: pulse-ring 2s ease infinite; }
+
+/* Lime pulse for identification processing */
+@keyframes lime-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+.lime-pulse { animation: lime-pulse 1.5s ease infinite; }
+
+/* Loading bar animation */
+@keyframes loading-bar {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+.loading-bar {
+  animation: loading-bar 1.5s ease infinite;
+}
+
+/* Tap state */
+.tap-highlight:active {
+  background: rgba(200,241,53,0.08) !important;
+}
+
+/* Scrollbar hide */
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Inline staggered fade for onboarding */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
