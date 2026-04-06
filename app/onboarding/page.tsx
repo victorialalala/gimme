@@ -105,8 +105,8 @@ function OnboardingContent() {
           >
             GIMME
           </h1>
-          {/* Lime dot */}
-          <div className="h-2 w-2 rounded-full" style={{ background: "#C8F135" }} />
+          {/* Lime asterisk */}
+          <span className="text-lg font-light leading-none" style={{ color: "#C8F135" }}>*</span>
         </div>
 
         {/* Tagline */}
@@ -119,7 +119,7 @@ function OnboardingContent() {
             opacity: 0,
           }}
         >
-          See it. Snap it. Save it.
+          See it. Snap it. Gimme.
         </p>
 
         {/* Steps */}
