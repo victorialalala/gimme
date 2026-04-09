@@ -19,17 +19,13 @@ export default function WelcomePage() {
         </h1>
 
         {/* Brand mark — winged heart */}
-        <svg width="40" height="28" viewBox="0 0 48 28" fill="none" stroke="#C8F135" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-          {/* Left wing */}
-          <path d="M18 12C14 10 8 8 2 10C5 7 10 6 14 7" />
-          <path d="M18 14C13 13 7 12 1 15C4 11 9 10 14 11" />
-          <path d="M17 16C12 16 6 16 1 20C4 16 9 14 14 15" />
-          {/* Right wing */}
-          <path d="M30 12C34 10 40 8 46 10C43 7 38 6 34 7" />
-          <path d="M30 14C35 13 41 12 47 15C44 11 39 10 34 11" />
-          <path d="M31 16C36 16 42 16 47 20C44 16 39 14 34 15" />
-          {/* Heart */}
-          <path d="M24 24C24 24 16 19 16 13.5C16 11.5 17.5 10 19.5 10C21 10 22.3 10.9 24 12.5C25.7 10.9 27 10 28.5 10C30.5 10 32 11.5 32 13.5C32 19 24 24 24 24Z" />
+        <svg width="44" height="24" viewBox="0 0 44 24" fill="none" strokeLinecap="round" strokeLinejoin="round">
+          {/* Left wing — single clean swept shape */}
+          <path d="M16 11C13 9 8 7.5 3 9C1.5 9.5 1 10.5 1.5 11.5C2 12.5 4 13 7 12.5C10 12 14 12 16 13" stroke="#C8F135" strokeWidth="1.3" fill="none" />
+          {/* Right wing — mirrored */}
+          <path d="M28 11C31 9 36 7.5 41 9C42.5 9.5 43 10.5 42.5 11.5C42 12.5 40 13 37 12.5C34 12 30 12 28 13" stroke="#C8F135" strokeWidth="1.3" fill="none" />
+          {/* Heart — filled lime */}
+          <path d="M22 21C22 21 14 16 14 11.5C14 9.5 15.5 8 17.5 8C19 8 20.5 9 22 11C23.5 9 25 8 26.5 8C28.5 8 30 9.5 30 11.5C30 16 22 21 22 21Z" fill="#C8F135" stroke="none" />
         </svg>
 
         {/* Tagline */}
