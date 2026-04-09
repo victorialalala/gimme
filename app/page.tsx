@@ -19,19 +19,21 @@ export default function WelcomePage() {
         </h1>
 
         {/* Brand mark — winged heart */}
-        <svg width="72" height="48" viewBox="0 0 72 48" fill="none">
-          {/* Left wing — soft rounded feather shapes */}
-          <path d="M26 26C22 28 14 30 8 28C4 26.5 4 24 7 23C10 22 16 23 22 25" stroke="#C8F135" strokeWidth="1.2" />
-          <path d="M26 23C21 23 13 23 7 20C3 18 3.5 15.5 6.5 15.5C10 15.5 16 18 23 22" stroke="#C8F135" strokeWidth="1.2" />
-          <path d="M27 20C23 18 16 14 11 11C8 9 8.5 7 11 7.5C14 8 20 12 25 18" stroke="#C8F135" strokeWidth="1.2" />
-          <path d="M29 18C26 14 22 9 20 5C18.5 2.5 20 1.5 22 3C24.5 5.5 27 11 29 17" stroke="#C8F135" strokeWidth="1.2" />
-          {/* Right wing — mirrored soft feathers */}
-          <path d="M46 26C50 28 58 30 64 28C68 26.5 68 24 65 23C62 22 56 23 50 25" stroke="#C8F135" strokeWidth="1.2" />
-          <path d="M46 23C51 23 59 23 65 20C69 18 68.5 15.5 65.5 15.5C62 15.5 56 18 49 22" stroke="#C8F135" strokeWidth="1.2" />
-          <path d="M45 20C49 18 56 14 61 11C64 9 63.5 7 61 7.5C58 8 52 12 47 18" stroke="#C8F135" strokeWidth="1.2" />
-          <path d="M43 18C46 14 50 9 52 5C53.5 2.5 52 1.5 50 3C47.5 5.5 45 11 43 17" stroke="#C8F135" strokeWidth="1.2" />
-          {/* Heart — solid lime with dark outline */}
-          <path d="M36 42C36 42 22 33 22 23.5C22 20 24.5 17 28 17C30.5 17 33 18.5 36 22C39 18.5 41.5 17 44 17C47.5 17 50 20 50 23.5C50 33 36 42 36 42Z" fill="#C8F135" stroke="#0A0A0A" strokeWidth="1.5" />
+        <svg width="72" height="44" viewBox="0 0 72 44" fill="none">
+          {/* Left wing — solid filled shape */}
+          <path d="M28 22C26 20 20 16 14 14C8 12 3 13 2 16C1 19 3 22 7 24C11 26 18 27 24 27C20 25 14 22 10 20C7 18.5 6 17 7.5 16C9 15 13 15.5 17 17.5C21 19.5 25 22 28 25Z" fill="#C8F135" opacity="0.35" />
+          <path d="M29 19C27 15 23 9 20 6C17 3 15 3 15 5C15 7 17 11 20 15C23 19 26 22 28 23C25 18 20 12 17 9C15 7 14 7.5 15 9C16 11 19 15 23 19C26 22 28 23 29 23Z" fill="#C8F135" opacity="0.35" />
+          {/* Left wing outline */}
+          <path d="M28 25C22 27 12 27 6 24C2 22 1 18 3 15C5 12 10 12 16 14C22 16 27 20 29 23" stroke="#C8F135" strokeWidth="1.2" />
+          <path d="M29 23C27 18 22 10 18 6C15 3 14 4 15 7C16 10 20 16 28 25" stroke="#C8F135" strokeWidth="1.2" />
+          {/* Right wing — mirrored solid */}
+          <path d="M44 22C46 20 52 16 58 14C64 12 69 13 70 16C71 19 69 22 65 24C61 26 54 27 48 27C52 25 58 22 62 20C65 18.5 66 17 64.5 16C63 15 59 15.5 55 17.5C51 19.5 47 22 44 25Z" fill="#C8F135" opacity="0.35" />
+          <path d="M43 19C45 15 49 9 52 6C55 3 57 3 57 5C57 7 55 11 52 15C49 19 46 22 44 23C47 18 52 12 55 9C57 7 58 7.5 57 9C56 11 53 15 49 19C46 22 44 23 43 23Z" fill="#C8F135" opacity="0.35" />
+          {/* Right wing outline */}
+          <path d="M44 25C50 27 60 27 66 24C70 22 71 18 69 15C67 12 62 12 56 14C50 16 45 20 43 23" stroke="#C8F135" strokeWidth="1.2" />
+          <path d="M43 23C45 18 50 10 54 6C57 3 58 4 57 7C56 10 52 16 44 25" stroke="#C8F135" strokeWidth="1.2" />
+          {/* Heart — solid lime, sits on top */}
+          <path d="M36 40C36 40 23 31 23 22.5C23 19.5 25.3 17 28 17C30.3 17 32.8 18.5 36 22C39.2 18.5 41.7 17 44 17C46.7 17 49 19.5 49 22.5C49 31 36 40 36 40Z" fill="#C8F135" stroke="#0A0A0A" strokeWidth="1.5" />
         </svg>
 
         {/* Tagline */}
