@@ -43,10 +43,14 @@ export default function SignInPage() {
         >
           GIMME
         </h1>
-        <svg width="22" height="12" viewBox="0 0 44 24" fill="none" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M16 11C13 9 8 7.5 3 9C1.5 9.5 1 10.5 1.5 11.5C2 12.5 4 13 7 12.5C10 12 14 12 16 13" stroke="#C8F135" strokeWidth="1.6" fill="none" />
-          <path d="M28 11C31 9 36 7.5 41 9C42.5 9.5 43 10.5 42.5 11.5C42 12.5 40 13 37 12.5C34 12 30 12 28 13" stroke="#C8F135" strokeWidth="1.6" fill="none" />
-          <path d="M22 21C22 21 14 16 14 11.5C14 9.5 15.5 8 17.5 8C19 8 20.5 9 22 11C23.5 9 25 8 26.5 8C28.5 8 30 9.5 30 11.5C30 16 22 21 22 21Z" fill="#C8F135" stroke="none" />
+        <svg width="28" height="18" viewBox="0 0 64 40" fill="none" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M24 18C20 14 12 10 4 12C2 12.6 1.5 14 2.5 15C4 16.5 8 16 12 15C16 14 21 14.5 24 17" stroke="#C8F135" strokeWidth="1.8" />
+          <path d="M24 20C19 17 11 14 4 17C2 17.8 1.8 19 3 19.8C5 21 9 20 13 18.5C17 17 21 17.5 24 19" stroke="#C8F135" strokeWidth="1.8" />
+          <path d="M24 22C19 20 12 18.5 6 21C4.5 21.7 4.5 23 5.5 23.5C7.5 24.5 11 23 15 21.5C19 20 22 20.5 24 22" stroke="#C8F135" strokeWidth="1.8" />
+          <path d="M40 18C44 14 52 10 60 12C62 12.6 62.5 14 61.5 15C60 16.5 56 16 52 15C48 14 43 14.5 40 17" stroke="#C8F135" strokeWidth="1.8" />
+          <path d="M40 20C45 17 53 14 60 17C62 17.8 62.2 19 61 19.8C59 21 55 20 51 18.5C47 17 43 17.5 40 19" stroke="#C8F135" strokeWidth="1.8" />
+          <path d="M40 22C45 20 52 18.5 58 21C59.5 21.7 59.5 23 58.5 23.5C56.5 24.5 53 23 49 21.5C45 20 42 20.5 40 22" stroke="#C8F135" strokeWidth="1.8" />
+          <path d="M32 36C32 36 20 28 20 20C20 17 22 14.5 25 14.5C27.2 14.5 29.5 16 32 19C34.5 16 36.8 14.5 39 14.5C42 14.5 44 17 44 20C44 28 32 36 32 36Z" fill="#C8F135" stroke="none" />
         </svg>
       </header>
 
