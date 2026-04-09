@@ -6,7 +6,7 @@
 // Never return Google tracking/redirect links.
 
 export const config = {
-  maxDuration: 25,
+  maxDuration: 15,
 };
 
 function filterAnomalousPrices(results: any[]): any[] {
@@ -24,12 +24,24 @@ function parsePrice(priceStr: string): number {
   return parseFloat(priceStr.replace(/[^0-9.]/g, "")) || 0;
 }
 
-// Check if a URL is a real retailer link (not a Google redirect)
+// Blocklist: used/resale/auction sites that cheapen the experience
+const BLOCKED_DOMAINS = [
+  "ebay.", "poshmark.", "mercari.", "depop.", "thredup.",
+  "therealreal.", "vestiaire.", "grailed.", "stockx.",
+  "offerup.", "craigslist.", "facebook.com/marketplace",
+  "tradesy.", "rebag.", "luxedh.", "fashionphile.",
+];
+
+// Check if a URL is a real retailer link (not Google or a resale site)
 function isDirectLink(url: string): boolean {
   if (!url) return false;
   try {
+    const lower = url.toLowerCase();
     const host = new URL(url).hostname;
-    return !host.includes("google.com") && !host.includes("google.co.");
+    if (host.includes("google.com") || host.includes("google.co.")) return false;
+    // Block used/resale/auction sites
+    if (BLOCKED_DOMAINS.some((d) => lower.includes(d))) return false;
+    return true;
   } catch {
     return false;
   }
@@ -54,11 +66,22 @@ export default async function handler(req: any, res: any) {
   try {
     const rawQuery = search_query || [brand, name, model].filter(Boolean).join(" ");
 
-    // ── Step 1: Google Shopping search for prices + product IDs ──
+    // ── Fire Google Shopping + Organic search IN PARALLEL ──
+    // Shopping gives us pricing data; Organic gives direct retailer URLs.
+    // Dropped the google_product loop (up to 3 sequential calls) — rarely
+    // returned sellers and was the biggest latency hit.
     const shoppingUrl = `https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(rawQuery)}&api_key=${apiKey}&gl=us&hl=en&num=5`;
+    const organicUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(rawQuery + " buy")}&api_key=${apiKey}&gl=us&hl=en&num=10`;
 
-    const shoppingRes = await fetch(shoppingUrl);
-    const shoppingData = await shoppingRes.json();
+    const [shoppingRes, organicRes] = await Promise.all([
+      fetch(shoppingUrl),
+      fetch(organicUrl),
+    ]);
+
+    const [shoppingData, organicData] = await Promise.all([
+      shoppingRes.json(),
+      organicRes.json().catch(() => ({})),
+    ]);
 
     if (!shoppingRes.ok) {
       console.error("[prices] Shopping API error:", shoppingData?.error);
@@ -66,80 +89,13 @@ export default async function handler(req: any, res: any) {
     }
 
     const shoppingResults = shoppingData.shopping_results || [];
-    console.log(`[prices] Shopping found ${shoppingResults.length} results for "${rawQuery}"`);
-
-    if (shoppingResults.length === 0) {
-      return res.status(200).json({ retailers: [] });
-    }
-
-    // ── Step 2: Try Google Product API for direct seller links ──
-    let directSellers: any[] = [];
-
-    for (const item of shoppingResults.slice(0, 3)) {
-      if (!item.product_id) {
-        console.log(`[prices] No product_id on result: "${item.title}"`);
-        continue;
-      }
-
-      try {
-        const productUrl = `https://serpapi.com/search.json?engine=google_product&product_id=${item.product_id}&api_key=${apiKey}&gl=us&hl=en`;
-        console.log(`[prices] Trying product_id: ${item.product_id}`);
-
-        const productRes = await fetch(productUrl);
-        const productData = await productRes.json();
-
-        if (!productRes.ok) {
-          console.log(`[prices] Product API returned ${productRes.status}: ${productData?.error}`);
-          continue;
-        }
-
-        // Try multiple paths — SerpAPI response format varies
-        const sellers =
-          productData.sellers_results?.online_sellers ||
-          productData.sellers_results?.sellers ||
-          productData.online_sellers ||
-          [];
-
-        console.log(`[prices] Product API returned ${sellers.length} sellers (keys: ${Object.keys(productData.sellers_results || {}).join(", ") || "none"})`);
-
-        if (sellers.length > 0) {
-          directSellers = sellers;
-          break;
-        }
-      } catch (err: any) {
-        console.error(`[prices] Product API error: ${err?.message}`);
-        continue;
-      }
-    }
+    console.log(`[prices] Shopping: ${shoppingResults.length} results for "${rawQuery}"`);
 
     let results: any[] = [];
 
-    if (directSellers.length > 0) {
-      // ── Path A: Direct seller links from Google Product API ──
-      console.log(`[prices] Using ${directSellers.length} direct sellers`);
-      results = directSellers
-        .filter((s: any) => isDirectLink(s.link))
-        .map((seller: any) => ({
-          retailer: seller.name || "Unknown",
-          title: seller.title || "",
-          price: seller.base_price || seller.total_price || "N/A",
-          price_num: parsePrice(seller.base_price || seller.total_price || ""),
-          link: seller.link,
-          thumbnail: null,
-        }));
-    }
-
-    // ── Path B: Fallback — use organic Google search for direct links ──
-    // Organic search results ALWAYS have direct retailer URLs
-    if (results.length === 0) {
-      console.log("[prices] Falling back to organic Google search");
-
-      const organicUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(rawQuery + " buy")}&api_key=${apiKey}&gl=us&hl=en&num=10`;
-      const organicRes = await fetch(organicUrl);
-      const organicData = await organicRes.json();
-
-      if (organicRes.ok) {
-        const organicResults = organicData.organic_results || [];
+    // ── Path A: Organic search for direct retailer URLs, priced from shopping ──
+    if (organicRes.ok) {
+      const organicResults = organicData.organic_results || [];
         console.log(`[prices] Organic search returned ${organicResults.length} results`);
 
         // Also check inline shopping results from organic search
@@ -183,7 +139,6 @@ export default async function handler(req: any, res: any) {
             url.includes("macys.") ||
             url.includes("target.") ||
             url.includes("walmart.") ||
-            url.includes("ebay.") ||
             url.includes("etsy.") ||
             url.includes("diptyque.") ||
             url.includes("byredo.") ||
@@ -228,8 +183,7 @@ export default async function handler(req: any, res: any) {
           }
         }
 
-        console.log(`[prices] Found ${results.length} direct retailer links from organic search`);
-      }
+      console.log(`[prices] Found ${results.length} direct retailer links from organic search`);
     }
 
     // ── Path C: Last resort — shopping results with price data but check for any direct links ──

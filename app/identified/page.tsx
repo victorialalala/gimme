@@ -29,25 +29,31 @@ type Retailer = {
   tag?: string;
 };
 
+type SimilarItem = {
+  title: string;
+  brand: string;
+  price: string;
+  link: string;
+  thumbnail: string;
+};
+
 function IdentifiedContent() {
   const router = useRouter();
   const { user } = useAuth();
-  const [stage, setStage] = useState<"scanning" | "found" | "error">("scanning");
+  const [stage, setStage] = useState<"scanning" | "found" | "similar" | "error">("scanning");
   const [product, setProduct] = useState<Product | null>(null);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
+  const [similarItems, setSimilarItems] = useState<SimilarItem[]>([]);
   const [imageData, setImageData] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     const base64 = sessionStorage.getItem("gimme-capture");
-    const searchQuery = sessionStorage.getItem("gimme-search-query");
 
     if (base64) {
       setImageData(base64);
       identifyFromImage(base64);
-    } else if (searchQuery) {
-      identifyFromText(searchQuery);
     } else {
       router.replace("/capture");
     }
@@ -63,33 +69,22 @@ function IdentifiedContent() {
 
       if (!res.ok) throw new Error("Identification failed");
 
-      const data: Product = await res.json();
-      setProduct(data);
-      setStage("found");
-      fetchPrices(data);
+      const data = await res.json();
+      const { similar_items, ...productData } = data;
+      setProduct(productData as Product);
+
+      // Low confidence + similar items available → show "You might also like"
+      if (productData.confidence < 70 && similar_items && similar_items.length > 0) {
+        setSimilarItems(similar_items);
+        setStage("similar");
+      } else {
+        setStage("found");
+        fetchPrices(productData as Product);
+      }
     } catch (err) {
       console.error("Identify error:", err);
       setStage("error");
     }
-  }
-
-  async function identifyFromText(query: string) {
-    const parts = query.split(" ");
-    const mockProduct: Product = {
-      brand: parts[0] || "Unknown",
-      name: query,
-      model: "",
-      color: "",
-      category: "other",
-      description: query,
-      estimated_price: "Searching...",
-      confidence: 70,
-      match_source: "ai",
-      search_query: query,
-    };
-    setProduct(mockProduct);
-    setStage("found");
-    fetchPrices(mockProduct);
   }
 
   async function fetchPrices(prod: Product) {
@@ -166,7 +161,6 @@ function IdentifiedContent() {
       setSaved(true);
 
       sessionStorage.removeItem("gimme-capture");
-      sessionStorage.removeItem("gimme-search-query");
 
       setTimeout(() => router.push("/home"), 1200);
     } catch (err) {
@@ -246,11 +240,109 @@ function IdentifiedContent() {
             Couldn&rsquo;t identify
           </h2>
           <p className="text-sm font-light mb-6" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
-            Try a clearer photo or use the search tab instead.
+            Try a clearer photo with better lighting.
           </p>
           <button
             onClick={() => router.push("/capture")}
             className="rounded-full px-8 py-3 text-xs font-semibold uppercase tracking-[0.2em]"
+            style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {stage === "similar" && (
+        <div className="flex flex-1 flex-col items-center px-6 py-4 pb-12">
+          {/* User's photo */}
+          {imageData && (
+            <div
+              className="fade-up relative flex h-[200px] w-full max-w-sm items-center justify-center overflow-hidden rounded-3xl mb-6"
+              style={{ background: "#141414" }}
+            >
+              <img
+                src={`data:image/jpeg;base64,${imageData}`}
+                alt="Your photo"
+                className="h-full w-full object-cover opacity-60"
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="rounded-full px-4 py-2" style={{ background: "rgba(10,10,10,0.85)", backdropFilter: "blur(8px)" }}>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-space)", color: "#666660" }}>
+                    No exact match found
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Section label */}
+          <div className="fade-up-1 w-full max-w-sm mb-4">
+            <p className="text-[10px] font-medium uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-space)", color: "#C8F135" }}>
+              You might also like
+            </p>
+          </div>
+
+          {/* Similar items — editorial card layout */}
+          <div className="fade-up-2 w-full max-w-sm flex flex-col gap-4">
+            {similarItems.map((item, i) => (
+              <a
+                key={i}
+                href={item.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group overflow-hidden rounded-2xl transition-transform active:scale-[0.98]"
+                style={{ background: "#141414", border: "1px solid #222222" }}
+              >
+                {/* Large product image — crisp, editorial */}
+                <div className="relative h-52 w-full overflow-hidden" style={{ background: "#1A1A1A" }}>
+                  <img
+                    src={item.thumbnail}
+                    alt={item.title}
+                    loading="eager"
+                    decoding="async"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    style={{ imageRendering: "auto", WebkitBackfaceVisibility: "hidden" }}
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.style.display = "none";
+                    }}
+                  />
+                </div>
+
+                {/* Info bar */}
+                <div className="flex items-center justify-between px-4 py-3.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-medium uppercase tracking-[0.12em] mb-0.5" style={{ fontFamily: "var(--font-space)", color: "#C8F135" }}>
+                      {item.brand}
+                    </p>
+                    <p className="text-sm font-medium truncate" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
+                      {item.title}
+                    </p>
+                  </div>
+                  <div className="ml-3 flex items-center gap-2 flex-shrink-0">
+                    <p className="text-base font-bold" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
+                      {item.price}
+                    </p>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C8F135" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+
+          <p className="mt-2.5 text-center text-[9px] font-light tracking-wide" style={{ fontFamily: "var(--font-inter)", color: "#444440" }}>
+            Gimme may earn a small commission on purchases
+          </p>
+
+          {/* Try again */}
+          <button
+            onClick={() => {
+              sessionStorage.removeItem("gimme-capture");
+              router.push("/capture");
+            }}
+            className="mt-6 w-full max-w-sm rounded-full py-4 text-xs font-semibold uppercase tracking-[0.2em] transition-opacity hover:opacity-85"
             style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
           >
             Try Again
@@ -380,6 +472,9 @@ function IdentifiedContent() {
                   </a>
                 ))}
               </div>
+              <p className="mt-2.5 text-center text-[9px] font-light tracking-wide" style={{ fontFamily: "var(--font-inter)", color: "#444440" }}>
+                Gimme may earn a small commission on purchases
+              </p>
             </div>
           )}
 
@@ -396,7 +491,7 @@ function IdentifiedContent() {
             <button
               onClick={() => {
                 sessionStorage.removeItem("gimme-capture");
-                sessionStorage.removeItem("gimme-search-query");
+
                 router.push("/capture");
               }}
               className="w-full py-3 text-xs font-light underline underline-offset-4 transition-opacity hover:opacity-70"

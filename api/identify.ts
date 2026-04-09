@@ -22,6 +22,17 @@ type ProductResult = {
   search_query: string; // pre-built query for price search
 };
 
+type SimilarItem = {
+  title: string;
+  brand: string;
+  price: string;
+  link: string;
+  thumbnail: string;
+};
+
+// Module-level cache for Lens visual matches (used for similar items on low confidence)
+let _lastLensVisualMatches: any[] = [];
+
 // ── Upload image temporarily to Supabase to get a public URL for Google Lens ──
 async function uploadTempImage(base64: string): Promise<{ url: string; path: string } | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yawnmnibzpctxokzsqce.supabase.co";
@@ -114,6 +125,7 @@ async function tryGoogleLens(imageUrl: string): Promise<ProductResult | null> {
 
     // Check visual_matches — look for consistent product identification
     const matches = data.visual_matches || [];
+    _lastLensVisualMatches = matches; // Cache for similar items fallback
     if (matches.length >= 2) {
       // Find the most common product name across matches
       const topMatch = matches[0];
@@ -345,25 +357,31 @@ export default async function handler(req: any, res: any) {
 
   try {
     let result: ProductResult | null = null;
-    let lensHint: ProductResult | null = null;
 
-    // ── Cascade Step 1: Google Lens ──
-    const tempImage = await uploadTempImage(image);
-    if (tempImage) {
+    // ── Run Google Lens (upload + lens) and GPT-4o IN PARALLEL ──
+    // Lens often beats GPT for branded goods; GPT is the reliable fallback.
+    // Racing them cuts latency ~40-50% vs sequential cascade.
+    const lensPromise: Promise<ProductResult | null> = (async () => {
+      const tempImage = await uploadTempImage(image);
+      if (!tempImage) return null;
       tempImagePath = tempImage.path;
-      lensHint = await tryGoogleLens(tempImage.url);
+      return tryGoogleLens(tempImage.url);
+    })();
 
-      // If Lens gave a high-confidence result (≥70%), use it directly
-      if (lensHint && lensHint.confidence >= 70) {
-        result = lensHint;
-        console.log(`[identify] Google Lens match: "${result.name}" (${result.confidence}%)`);
-      }
-    }
+    const gptPromise = identifyWithGPT(image, null).catch((e) => {
+      console.error("[identify] GPT error:", e?.message);
+      return null;
+    });
 
-    // ── Cascade Step 2: GPT-4o (either fresh or refining a weak Lens hint) ──
-    if (!result) {
-      // Pass the Lens hint to GPT-4o so it can confirm or override
-      const gptResult = await identifyWithGPT(image, lensHint);
+    const lensHint = await lensPromise;
+
+    // If Lens gave a high-confidence result (≥70%), use it — don't wait on GPT
+    if (lensHint && lensHint.confidence >= 70) {
+      result = lensHint;
+      console.log(`[identify] Lens match: "${result.name}" (${result.confidence}%)`);
+    } else {
+      const gptResult = await gptPromise;
+      if (!gptResult) throw new Error("Identification failed");
 
       // If we had a weak Lens hint and GPT-4o agrees, boost confidence
       if (lensHint && gptResult.brand.toLowerCase() === lensHint.brand.toLowerCase()) {
@@ -380,7 +398,23 @@ export default async function handler(req: any, res: any) {
       deleteTempImage(tempImagePath); // Fire-and-forget
     }
 
-    return res.status(200).json(result);
+    // If confidence is below 70%, build similar items from Lens visual matches
+    let similar_items: SimilarItem[] = [];
+    if (result.confidence < 70 && _lastLensVisualMatches.length > 0) {
+      similar_items = _lastLensVisualMatches
+        .filter((m: any) => m.title && m.link && (m.image || m.thumbnail))
+        .slice(0, 3)
+        .map((m: any) => ({
+          title: m.title,
+          brand: extractBrandFromTitle(m.title),
+          price: m.price?.value || (m.price?.extracted_value ? `$${m.price.extracted_value}` : "See price"),
+          link: m.link,
+          thumbnail: m.image || m.thumbnail, // Prefer full-res image over thumbnail
+        }));
+      console.log(`[identify] Low confidence (${result.confidence}%) — returning ${similar_items.length} similar items`);
+    }
+
+    return res.status(200).json({ ...result, similar_items });
   } catch (error: any) {
     // Clean up on error too
     if (tempImagePath) deleteTempImage(tempImagePath);

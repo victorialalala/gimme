@@ -43,7 +43,15 @@ export default function SignInPage() {
         >
           GIMME
         </h1>
-        <div className="h-1.5 w-1.5 rounded-full" style={{ background: "#C8F135" }} />
+        <svg width="20" height="14" viewBox="0 0 48 28" fill="none" stroke="#C8F135" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 12C14 10 8 8 2 10C5 7 10 6 14 7" />
+          <path d="M18 14C13 13 7 12 1 15C4 11 9 10 14 11" />
+          <path d="M17 16C12 16 6 16 1 20C4 16 9 14 14 15" />
+          <path d="M30 12C34 10 40 8 46 10C43 7 38 6 34 7" />
+          <path d="M30 14C35 13 41 12 47 15C44 11 39 10 34 11" />
+          <path d="M31 16C36 16 42 16 47 20C44 16 39 14 34 15" />
+          <path d="M24 24C24 24 16 19 16 13.5C16 11.5 17.5 10 19.5 10C21 10 22.3 10.9 24 12.5C25.7 10.9 27 10 28.5 10C30.5 10 32 11.5 32 13.5C32 19 24 24 24 24Z" />
+        </svg>
       </header>
 
       {/* Form */}

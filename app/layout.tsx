@@ -33,6 +33,11 @@ export default function RootLayout({
           src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"
           strategy="beforeInteractive"
         />
+        {/* Skimlinks affiliate link tracking — converts outbound retailer links to tracked affiliate links */}
+        <Script
+          src="https://s.skimresources.com/js/301271X1789210.skimlinks.js"
+          strategy="afterInteractive"
+        />
       </head>
       <body className="h-full antialiased" style={{ background: "#0A0A0A", color: "#F5F5F0" }}>
         <AuthProvider>
