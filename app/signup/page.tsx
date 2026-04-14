@@ -11,7 +11,6 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checkEmail, setCheckEmail] = useState(false);
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
@@ -28,55 +27,8 @@ export default function SignUpPage() {
     if (error) {
       setError(error.message);
     } else {
-      setCheckEmail(true);
+      router.push("/home");
     }
-  }
-
-  if (checkEmail) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center px-6" style={{ background: "#0A0A0A" }}>
-        <div className="flex w-full max-w-sm flex-col items-center gap-6 text-center">
-          {/* Email icon */}
-          <div
-            className="flex h-16 w-16 items-center justify-center rounded-full"
-            style={{ background: "#141414", border: "1px solid #222222" }}
-          >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#C8F135" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="4" width="20" height="16" rx="2" />
-              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-            </svg>
-          </div>
-
-          <h1
-            className="text-2xl font-bold"
-            style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}
-          >
-            Check your email
-          </h1>
-          <p
-            className="text-sm font-light leading-relaxed"
-            style={{ fontFamily: "var(--font-inter)", color: "#666660" }}
-          >
-            We sent a confirmation link to<br />
-            <span style={{ color: "#F5F5F0" }}>{email}</span>
-          </p>
-          <p
-            className="text-xs font-light"
-            style={{ fontFamily: "var(--font-inter)", color: "#666660" }}
-          >
-            Click the link to activate your account, then come back here.
-          </p>
-
-          <Link
-            href="/signin"
-            className="mt-4 block w-full rounded-full py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] transition-opacity hover:opacity-85"
-            style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
-          >
-            Go to Sign In
-          </Link>
-        </div>
-      </main>
-    );
   }
 
   return (
@@ -169,8 +121,8 @@ export default function SignUpPage() {
           style={{ fontFamily: "var(--font-inter)", color: "#666660" }}
         >
           By continuing you agree to our{" "}
-          <span className="underline underline-offset-2">Terms</span> and{" "}
-          <span className="underline underline-offset-2">Privacy Policy</span>
+          <Link href="/terms" className="underline underline-offset-2">Terms</Link> and{" "}
+          <Link href="/privacy" className="underline underline-offset-2">Privacy Policy</Link>
         </p>
       </footer>
     </main>

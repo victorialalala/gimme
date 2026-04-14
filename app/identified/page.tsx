@@ -47,6 +47,7 @@ function IdentifiedContent() {
   const [imageData, setImageData] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [pricesFailed, setPricesFailed] = useState(false);
 
   useEffect(() => {
     const base64 = sessionStorage.getItem("gimme-capture");
@@ -113,6 +114,7 @@ function IdentifiedContent() {
       }
     } catch (err) {
       console.error("Price fetch error:", err);
+      setPricesFailed(true);
     }
   }
 
@@ -240,15 +242,24 @@ function IdentifiedContent() {
             Couldn&rsquo;t identify
           </h2>
           <p className="text-sm font-light mb-6" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
-            Try a clearer photo with better lighting.
+            Try again or retake with better lighting.
           </p>
-          <button
-            onClick={() => router.push("/capture")}
-            className="rounded-full px-8 py-3 text-xs font-semibold uppercase tracking-[0.2em]"
-            style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
-          >
-            Try Again
-          </button>
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <button
+              onClick={() => { if (imageData) { setStage("scanning"); identifyFromImage(imageData); } }}
+              className="w-full rounded-full px-8 py-3 text-xs font-semibold uppercase tracking-[0.2em]"
+              style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
+            >
+              Retry
+            </button>
+            <button
+              onClick={() => router.push("/capture")}
+              className="w-full py-3 text-xs font-light underline underline-offset-4 transition-opacity hover:opacity-70"
+              style={{ fontFamily: "var(--font-inter)", color: "#666660" }}
+            >
+              Retake Photo
+            </button>
+          </div>
         </div>
       )}
 
@@ -332,7 +343,7 @@ function IdentifiedContent() {
             ))}
           </div>
 
-          <p className="mt-2.5 text-center text-[9px] font-light tracking-wide" style={{ fontFamily: "var(--font-inter)", color: "#444440" }}>
+          <p className="mt-2.5 text-center text-[11px] font-light tracking-wide" style={{ fontFamily: "var(--font-inter)", color: "#444440" }}>
             Gimme may earn a small commission on purchases
           </p>
 
@@ -426,6 +437,8 @@ function IdentifiedContent() {
             <p className="text-[10px] uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-space)", color: "#666660" }}>
               {retailers.length > 0
                 ? `${retailers.length} retailers found`
+                : pricesFailed
+                ? "Couldn\u2019t find prices"
                 : "Searching for prices..."}
             </p>
           </div>
@@ -472,7 +485,7 @@ function IdentifiedContent() {
                   </a>
                 ))}
               </div>
-              <p className="mt-2.5 text-center text-[9px] font-light tracking-wide" style={{ fontFamily: "var(--font-inter)", color: "#444440" }}>
+              <p className="mt-2.5 text-center text-[11px] font-light tracking-wide" style={{ fontFamily: "var(--font-inter)", color: "#444440" }}>
                 Gimme may earn a small commission on purchases
               </p>
             </div>

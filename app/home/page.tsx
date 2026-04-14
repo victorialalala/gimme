@@ -30,6 +30,7 @@ export default function HomePage() {
 
   const [editingCollection, setEditingCollection] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [dataError, setDataError] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -67,7 +68,7 @@ export default function HomePage() {
         setCollections(uniqueCollections);
       }
     } catch {
-      // Silently fail
+      setDataError(true);
     }
 
     setDataLoading(false);
@@ -157,7 +158,10 @@ export default function HomePage() {
         </button>
       </header>
 
-      {/* Settings dropdown */}
+      {/* Settings backdrop + dropdown */}
+      {showSettings && (
+        <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)} />
+      )}
       {showSettings && (
         <div
           className="absolute right-4 top-16 z-50 flex flex-col rounded-2xl p-2"
@@ -364,8 +368,32 @@ export default function HomePage() {
         ))}
       </div>
 
+      {/* Error state */}
+      {dataError && items.length === 0 && (
+        <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "#141414", border: "1px solid #222222" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E63946" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-bold" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
+            Couldn&rsquo;t load your items
+          </h2>
+          <p className="text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
+            Check your connection and try again.
+          </p>
+          <button
+            onClick={() => { setDataError(false); setDataLoading(true); loadData(); }}
+            className="rounded-full px-8 py-3 text-xs font-semibold uppercase tracking-[0.2em]"
+            style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Empty state */}
-      {items.length === 0 && (
+      {!dataError && items.length === 0 && (
         <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "#141414", border: "1px solid #222222" }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666660" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

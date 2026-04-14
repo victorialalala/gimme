@@ -105,6 +105,14 @@ export default function SignInPage() {
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
+
+          <Link
+            href="/reset-password"
+            className="block text-center text-xs font-light underline underline-offset-4 transition-opacity hover:opacity-70"
+            style={{ fontFamily: "var(--font-inter)", color: "#666660" }}
+          >
+            Forgot your password?
+          </Link>
         </form>
       </section>
 
