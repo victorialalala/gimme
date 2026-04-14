@@ -19,7 +19,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "GIMME — Shazam for things you want.",
+  title: "GIMME",
   description: "See it. Snap it. Save it. Buy it.",
 };
 
