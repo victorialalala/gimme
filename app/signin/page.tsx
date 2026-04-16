@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
+import GoogleButton from "../components/GoogleButton";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -65,6 +66,14 @@ export default function SignInPage() {
           >
             Sign in to see your saved items.
           </p>
+        </div>
+
+        <GoogleButton label="Continue with Google" />
+
+        <div className="flex w-full items-center gap-3">
+          <div className="h-px flex-1" style={{ background: "#222222" }} />
+          <span className="text-[10px] uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-space)", color: "#444440" }}>or</span>
+          <div className="h-px flex-1" style={{ background: "#222222" }} />
         </div>
 
         <form onSubmit={handleSignIn} className="flex flex-col gap-3">

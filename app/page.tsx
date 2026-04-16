@@ -1,4 +1,5 @@
 import Link from "next/link";
+import GoogleButton from "./components/GoogleButton";
 
 export default function WelcomePage() {
   return (
@@ -36,31 +37,28 @@ export default function WelcomePage() {
       </section>
 
       {/* CTAs */}
-      <footer className="flex w-full max-w-sm flex-col items-center gap-3">
+      <footer className="flex w-full max-w-sm flex-col items-center gap-4">
 
-        <Link
-          href="/signup"
-          className="block w-full rounded-full py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] transition-opacity hover:opacity-85 active:opacity-70"
-          style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
-        >
-          Get Started
-        </Link>
+        <GoogleButton label="Sign up with Google" variant="lime" />
 
-        <Link
-          href="/signin"
-          className="block w-full rounded-full border py-4 text-center text-xs font-medium uppercase tracking-[0.2em] transition-colors"
-          style={{ fontFamily: "var(--font-space)", borderColor: "#222222", color: "#F5F5F0" }}
-        >
-          Sign In
-        </Link>
+        <p className="text-xs" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
+          Already have an account?{" "}
+          <Link href="/signin" className="font-medium underline underline-offset-2" style={{ color: "#F5F5F0" }}>
+            Sign in
+          </Link>
+          {" · "}
+          <Link href="/signup" className="underline underline-offset-2">
+            Use email
+          </Link>
+        </p>
 
         <p
-          className="mt-1 text-center text-[10px] leading-relaxed"
-          style={{ fontFamily: "var(--font-inter)", color: "#666660" }}
+          className="text-center text-[10px] leading-relaxed"
+          style={{ fontFamily: "var(--font-inter)", color: "#444440" }}
         >
           By continuing you agree to our{" "}
-          <span className="underline underline-offset-2">Terms</span> and{" "}
-          <span className="underline underline-offset-2">Privacy Policy</span>
+          <Link href="/terms" className="underline underline-offset-2">Terms</Link> and{" "}
+          <Link href="/privacy" className="underline underline-offset-2">Privacy Policy</Link>
         </p>
       </footer>
 

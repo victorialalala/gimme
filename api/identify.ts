@@ -1,6 +1,6 @@
 // Cascade product identification:
 // 1) Google Lens (via SerpAPI) — best for recognizing exact branded products
-// 2) GPT-4o Vision fallback — with structured prompt for precise output
+// 2) Claude claude-sonnet-4-6 Vision fallback — with structured prompt for precise output
 // Returns structured JSON for optimal SERP price queries
 
 import { createClient } from "@supabase/supabase-js";
@@ -30,9 +30,6 @@ type SimilarItem = {
   thumbnail: string;
 };
 
-// Module-level cache for Lens visual matches (used for similar items on low confidence)
-let _lastLensVisualMatches: any[] = [];
-
 // ── Upload image temporarily to Supabase to get a public URL for Google Lens ──
 async function uploadTempImage(base64: string): Promise<{ url: string; path: string } | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yawnmnibzpctxokzsqce.supabase.co";
@@ -44,7 +41,6 @@ async function uploadTempImage(base64: string): Promise<{ url: string; path: str
     const supabase = createClient(supabaseUrl, serviceKey);
     const fileName = `temp/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
 
-    // Convert base64 to buffer
     const buffer = Buffer.from(base64, "base64");
 
     const { error } = await supabase.storage
@@ -82,9 +78,13 @@ async function deleteTempImage(path: string) {
 }
 
 // ── Step 1: Google Lens via SerpAPI ──
-async function tryGoogleLens(imageUrl: string): Promise<ProductResult | null> {
+// Returns { result, visualMatches } so callers don't rely on module-level state
+async function tryGoogleLens(imageUrl: string): Promise<{
+  result: ProductResult | null;
+  visualMatches: any[];
+}> {
   const serpApiKey = process.env.SERPAPI_KEY;
-  if (!serpApiKey) return null;
+  if (!serpApiKey) return { result: null, visualMatches: [] };
 
   try {
     const url = `https://serpapi.com/search.json?engine=google_lens&url=${encodeURIComponent(imageUrl)}&api_key=${serpApiKey}`;
@@ -93,181 +93,208 @@ async function tryGoogleLens(imageUrl: string): Promise<ProductResult | null> {
 
     if (!response.ok) {
       console.error("Google Lens error:", JSON.stringify(data));
-      return null;
+      return { result: null, visualMatches: [] };
     }
 
-    // Check knowledge_graph first — this means Lens recognized a specific product
+    const visualMatches = data.visual_matches || [];
+
+    // Check knowledge_graph first — means Lens recognized a specific product
     const kg = data.knowledge_graph;
     if (kg && kg.length > 0) {
       const topResult = kg[0];
       const title = topResult.title || "";
       const subtitle = topResult.subtitle || "";
 
-      // Try to extract brand from subtitle or title
       const brand = subtitle || title.split(" ")[0] || "Unknown";
       const name = title;
 
       if (name && name !== "Unknown") {
         return {
-          brand,
-          name,
-          model: "",
-          color: "",
-          category: guessCategory(name + " " + subtitle),
-          description: subtitle,
-          estimated_price: extractPriceFromLens(data),
-          confidence: 90,
-          match_source: "lens",
-          search_query: `${brand} ${name}`.trim(),
+          result: {
+            brand,
+            name,
+            model: "",
+            color: "",
+            category: guessCategory(name + " " + subtitle),
+            description: subtitle,
+            estimated_price: extractPriceFromLens(data),
+            confidence: 90,
+            match_source: "lens",
+            search_query: `${brand} ${name}`.trim(),
+          },
+          visualMatches,
         };
       }
     }
 
     // Check visual_matches — look for consistent product identification
-    const matches = data.visual_matches || [];
-    _lastLensVisualMatches = matches; // Cache for similar items fallback
-    if (matches.length >= 2) {
-      // Find the most common product name across matches
-      const topMatch = matches[0];
+    if (visualMatches.length >= 2) {
+      const topMatch = visualMatches[0];
       const title = topMatch.title || "";
       const source = topMatch.source || "";
 
-      // Check if multiple matches agree on the product
       const titleWords = title.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
       let agreementCount = 0;
 
-      for (let i = 1; i < Math.min(matches.length, 5); i++) {
-        const otherTitle = (matches[i].title || "").toLowerCase();
+      for (let i = 1; i < Math.min(visualMatches.length, 5); i++) {
+        const otherTitle = (visualMatches[i].title || "").toLowerCase();
         const matchingWords = titleWords.filter((w: string) => otherTitle.includes(w));
         if (matchingWords.length >= 2) agreementCount++;
       }
 
-      // If 2+ other results agree, this is likely the right product
       if (agreementCount >= 2) {
         const brand = extractBrandFromTitle(title);
         const price = topMatch.price?.value || extractPriceFromLens(data);
 
         return {
-          brand,
-          name: cleanProductTitle(title, brand),
-          model: "",
-          color: "",
-          category: guessCategory(title),
-          description: `Found on ${source}`,
-          estimated_price: price,
-          confidence: 80,
-          match_source: "lens",
-          search_query: title,
+          result: {
+            brand,
+            name: cleanProductTitle(title, brand),
+            model: "",
+            color: "",
+            category: guessCategory(title),
+            description: `Found on ${source}`,
+            estimated_price: price,
+            confidence: 80,
+            match_source: "lens",
+            search_query: title,
+          },
+          visualMatches,
         };
       }
 
-      // Even weak Lens results can hint — return with lower confidence
-      if (matches.length >= 3) {
+      if (visualMatches.length >= 3) {
         const brand = extractBrandFromTitle(title);
         const price = topMatch.price?.value || "";
 
         return {
-          brand,
-          name: cleanProductTitle(title, brand),
-          model: "",
-          color: "",
-          category: guessCategory(title),
-          description: `Visual match from ${source}`,
-          estimated_price: price,
-          confidence: 55, // Below threshold — will trigger GPT-4o refinement
-          match_source: "lens",
-          search_query: title,
+          result: {
+            brand,
+            name: cleanProductTitle(title, brand),
+            model: "",
+            color: "",
+            category: guessCategory(title),
+            description: `Visual match from ${source}`,
+            estimated_price: price,
+            confidence: 55, // Below threshold — will trigger Claude refinement
+            match_source: "lens",
+            search_query: title,
+          },
+          visualMatches,
         };
       }
     }
 
-    return null;
+    return { result: null, visualMatches };
   } catch (err) {
     console.error("Google Lens failed:", err);
-    return null;
+    return { result: null, visualMatches: [] };
   }
 }
 
-// ── Step 2: GPT-4o Vision (structured prompt) ──
-async function identifyWithGPT(
+// ── Step 2: Claude Vision (structured prompt) ──
+async function identifyWithClaude(
   base64: string,
   lensHint?: ProductResult | null
 ): Promise<ProductResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OpenAI API key not configured");
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("Anthropic API key not configured");
 
-  // Build a more targeted prompt, optionally seeded with Lens hint
   let contextHint = "";
   if (lensHint) {
     contextHint = `\nA visual search suggests this might be: "${lensHint.name}" by ${lensHint.brand}. Verify or correct this identification.`;
   }
 
-  const systemPrompt = `You are a product identification expert with deep knowledge of luxury goods, fashion, electronics, beauty, and home products. Identify the product in the image with maximum precision.${contextHint}
+  const systemPrompt = `You are an expert product identification system used in a shopping app. Your job is to identify exactly what product is in a photo so users can find it and compare prices.${contextHint}
+
+## How to identify
+
+1. **Scan for brand signals first**: logos, text printed on the product, tags, labels, packaging, hardware (e.g. "CC" on Chanel, swoosh on Nike, bitten apple on Apple). These are the most reliable signals.
+2. **Use shape + materials**: silhouette, material (leather vs canvas vs plastic), stitching, sole shape, cap shape, bottle shape — these narrow down brand and line.
+3. **Use context clues**: what else is in the photo (a makeup counter = beauty product, a sneaker shelf = footwear).
+4. **Be specific, never vague**: say "Nike Air Force 1 Low White" not "white sneaker". Say "Chanel Classic Flap Medium" not "quilted handbag". Say "Stanley Quencher 40oz" not "tumbler".
+5. **Confidence calibration**:
+   - 90–100: you can see the brand AND the specific product name/model clearly
+   - 70–89: brand is certain, product name is very likely
+   - 50–69: brand is likely, product name is a good guess
+   - 30–49: you can see what TYPE of product it is but brand/name is uncertain
+   - 0–29: you can barely make out what it is
 
 Return ONLY valid JSON with these exact fields:
 {
-  "brand": "exact brand name (e.g. 'Nike', 'Apple', 'Chanel')",
-  "name": "full product name without brand (e.g. 'Air Force 1 Low')",
-  "model": "specific model, style number, or collection name if known (e.g. 'CW2288-111', 'Classic Flap', 'Series 9'). Empty string if unknown.",
-  "color": "color/colorway if visible (e.g. 'White/White', 'Black Caviar', 'Midnight'). Empty string if unclear.",
+  "brand": "exact brand name (e.g. 'Nike', 'Apple', 'Chanel', 'Stanley', 'Diptyque')",
+  "name": "specific product name without the brand prefix (e.g. 'Air Force 1 Low', 'MacBook Pro 14-inch', 'Classic Flap Medium', 'Baies Candle')",
+  "model": "model number, colorway code, or collection if visible (e.g. 'CW2288-111', 'M3 Pro', '2024'). Empty string if unknown.",
+  "color": "primary color or colorway name (e.g. 'Triple White', 'Black Caviar', 'Midnight Blue'). Empty string if unclear.",
   "category": "MUST be exactly one of: beauty, accessories, clothing, art & design, home, technology",
-  "description": "short factual description with key details separated by · (e.g. 'Leather Sneaker · Low Top · Perforated')",
-  "estimated_price": "retail price as string with $ (e.g. '$120', '$7,400')",
-  "confidence": "number 0-100 — use 90+ only if you can name the exact brand AND product"
+  "description": "2–4 key product attributes separated by · that someone would use to search (e.g. 'Low Top Sneaker · Leather · Perforated Toe Box')",
+  "estimated_price": "typical retail price as a string with $ sign (e.g. '$120', '$2,800', '$38'). Use your knowledge of typical retail pricing.",
+  "confidence": number 0–100 per the calibration above
 }
 
 Category rules:
 - beauty: makeup, skincare, fragrance, haircare, nail polish, beauty tools
 - accessories: bags, watches, jewelry, sunglasses, scarves, hats, belts, wallets
-- clothing: all garments and shoes/sneakers
+- clothing: all garments and footwear including sneakers and boots
 - art & design: artwork, prints, books, stationery, design objects
 - home: furniture, kitchenware, candles, decor, bedding, appliances
 - technology: electronics, gadgets, phones, laptops, headphones, cameras
 
-IMPORTANT: If you recognize a specific branded product, state the exact brand and product name. Do not be vague — say "Nike Air Max 90" not "athletic sneaker". If you truly cannot identify it, set confidence below 30.`;
+## Search query
+Also output a "search_query" field: a clean, concise shopping query (no filler words) that would find this exact product on Google Shopping. E.g. "Nike Air Force 1 Low Triple White CW2288-111" or "Chanel Classic Flap Medium Black Caviar Gold Hardware".`;
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "gpt-4o",
+      model: "claude-sonnet-4-6",
+      max_tokens: 600,
+      system: [
+        {
+          type: "text",
+          text: systemPrompt,
+          cache_control: { type: "ephemeral" }, // Cache the long system prompt
+        },
+      ],
       messages: [
-        { role: "system", content: systemPrompt },
         {
           role: "user",
           content: [
             {
-              type: "text",
-              text: "Identify this product. What is the exact brand, product name, and model? What's the estimated retail price?",
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: "image/jpeg",
+                data: base64,
+              },
             },
             {
-              type: "image_url",
-              image_url: { url: `data:image/jpeg;base64,${base64}` },
+              type: "text",
+              text: "Look carefully at this image. First identify any brand logos, text, or distinctive design elements you can see. Then output the JSON identifying the exact product.",
             },
           ],
         },
       ],
-      max_tokens: 400,
     }),
   });
 
   const data = await response.json();
 
   if (!response.ok) {
-    console.error("OpenAI error:", JSON.stringify(data));
+    console.error("Claude error:", JSON.stringify(data));
     throw new Error(data?.error?.message || "AI identification failed");
   }
 
-  const text = data.choices?.[0]?.message?.content || "";
+  const text = data.content?.[0]?.text || "";
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Could not parse AI response");
 
   const product = JSON.parse(jsonMatch[0]);
 
-  // Build an optimized search query: brand + name + model (skip empty parts)
   const queryParts = [product.brand, product.name, product.model].filter(Boolean);
   const searchQuery = queryParts.join(" ");
 
@@ -288,7 +315,6 @@ IMPORTANT: If you recognize a specific branded product, state the exact brand an
 // ── Helpers ──
 
 function extractBrandFromTitle(title: string): string {
-  // Common brand patterns — first word is often the brand
   const known = [
     "Nike", "Adidas", "Apple", "Samsung", "Sony", "Chanel", "Louis Vuitton",
     "Gucci", "Prada", "Hermès", "Hermes", "Dior", "Balenciaga", "Fendi",
@@ -305,18 +331,15 @@ function extractBrandFromTitle(title: string): string {
     if (titleLower.includes(brand.toLowerCase())) return brand;
   }
 
-  // Fall back to first word
   return title.split(/\s+/)[0] || "Unknown";
 }
 
 function cleanProductTitle(title: string, brand: string): string {
-  // Remove brand from the beginning of the title to avoid duplication
   const re = new RegExp(`^${brand}\\s*[-–—:]?\\s*`, "i");
   return title.replace(re, "").trim() || title;
 }
 
 function extractPriceFromLens(data: any): string {
-  // Try to find a price in visual matches
   const matches = data.visual_matches || [];
   for (const m of matches) {
     if (m.price?.value) return m.price.value;
@@ -357,40 +380,43 @@ export default async function handler(req: any, res: any) {
 
   try {
     let result: ProductResult | null = null;
+    let lensVisualMatches: any[] = [];
 
-    // ── Run Google Lens (upload + lens) and GPT-4o IN PARALLEL ──
-    // Lens often beats GPT for branded goods; GPT is the reliable fallback.
+    // ── Run Google Lens (upload + lens) and Claude IN PARALLEL ──
+    // Lens often beats Claude for branded goods; Claude is the reliable fallback.
     // Racing them cuts latency ~40-50% vs sequential cascade.
-    const lensPromise: Promise<ProductResult | null> = (async () => {
+    const lensPromise = (async () => {
       const tempImage = await uploadTempImage(image);
-      if (!tempImage) return null;
+      if (!tempImage) return { result: null, visualMatches: [] };
       tempImagePath = tempImage.path;
       return tryGoogleLens(tempImage.url);
     })();
 
-    const gptPromise = identifyWithGPT(image, null).catch((e) => {
-      console.error("[identify] GPT error:", e?.message);
+    const claudePromise = identifyWithClaude(image, null).catch((e) => {
+      console.error("[identify] Claude error:", e?.message);
       return null;
     });
 
-    const lensHint = await lensPromise;
+    const lensOutput = await lensPromise;
+    lensVisualMatches = lensOutput.visualMatches;
+    const lensResult = lensOutput.result;
 
-    // If Lens gave a high-confidence result (≥70%), use it — don't wait on GPT
-    if (lensHint && lensHint.confidence >= 70) {
-      result = lensHint;
+    // If Lens gave a high-confidence result (≥70%), use it — don't wait on Claude
+    if (lensResult && lensResult.confidence >= 70) {
+      result = lensResult;
       console.log(`[identify] Lens match: "${result.name}" (${result.confidence}%)`);
     } else {
-      const gptResult = await gptPromise;
-      if (!gptResult) throw new Error("Identification failed");
+      const claudeResult = await claudePromise;
+      if (!claudeResult) throw new Error("Identification failed");
 
-      // If we had a weak Lens hint and GPT-4o agrees, boost confidence
-      if (lensHint && gptResult.brand.toLowerCase() === lensHint.brand.toLowerCase()) {
-        gptResult.confidence = Math.min(95, gptResult.confidence + 15);
-        gptResult.match_source = "lens"; // Credit the cross-validated Lens match
+      // If we had a weak Lens hint and Claude agrees, boost confidence
+      if (lensResult && claudeResult.brand.toLowerCase() === lensResult.brand.toLowerCase()) {
+        claudeResult.confidence = Math.min(95, claudeResult.confidence + 15);
+        claudeResult.match_source = "lens"; // Credit the cross-validated Lens match
       }
 
-      result = gptResult;
-      console.log(`[identify] GPT-4o result: "${result.name}" by ${result.brand} (${result.confidence}%)`);
+      result = claudeResult;
+      console.log(`[identify] Claude result: "${result.name}" by ${result.brand} (${result.confidence}%)`);
     }
 
     // Clean up temp image
@@ -400,8 +426,8 @@ export default async function handler(req: any, res: any) {
 
     // If confidence is below 70%, build similar items from Lens visual matches
     let similar_items: SimilarItem[] = [];
-    if (result.confidence < 70 && _lastLensVisualMatches.length > 0) {
-      similar_items = _lastLensVisualMatches
+    if (result.confidence < 70 && lensVisualMatches.length > 0) {
+      similar_items = lensVisualMatches
         .filter((m: any) => m.title && m.link && (m.image || m.thumbnail))
         .slice(0, 3)
         .map((m: any) => ({
@@ -409,14 +435,13 @@ export default async function handler(req: any, res: any) {
           brand: extractBrandFromTitle(m.title),
           price: m.price?.value || (m.price?.extracted_value ? `$${m.price.extracted_value}` : "See price"),
           link: m.link,
-          thumbnail: m.image || m.thumbnail, // Prefer full-res image over thumbnail
+          thumbnail: m.image || m.thumbnail,
         }));
       console.log(`[identify] Low confidence (${result.confidence}%) — returning ${similar_items.length} similar items`);
     }
 
     return res.status(200).json({ ...result, similar_items });
   } catch (error: any) {
-    // Clean up on error too
     if (tempImagePath) deleteTempImage(tempImagePath);
 
     console.error("Identify error:", error?.message || error);
