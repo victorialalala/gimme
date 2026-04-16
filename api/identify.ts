@@ -192,13 +192,13 @@ async function tryGoogleLens(imageUrl: string): Promise<{
   }
 }
 
-// ── Step 2: Claude Vision (structured prompt) ──
-async function identifyWithClaude(
+// ── Step 2: GPT-4o Vision (structured prompt) ──
+async function identifyWithGPT(
   base64: string,
   lensHint?: ProductResult | null
 ): Promise<ProductResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("Anthropic API key not configured");
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OpenAI API key not configured");
 
   let contextHint = "";
   if (lensHint) {
@@ -229,7 +229,8 @@ Return ONLY valid JSON with these exact fields:
   "category": "MUST be exactly one of: beauty, accessories, clothing, art & design, home, technology",
   "description": "2–4 key product attributes separated by · that someone would use to search (e.g. 'Low Top Sneaker · Leather · Perforated Toe Box')",
   "estimated_price": "typical retail price as a string with $ sign (e.g. '$120', '$2,800', '$38'). Use your knowledge of typical retail pricing.",
-  "confidence": number 0–100 per the calibration above
+  "confidence": number 0–100 per the calibration above,
+  "search_query": "clean concise shopping query to find this on Google Shopping e.g. 'Nike Air Force 1 Low Triple White CW2288-111'"
 }
 
 Category rules:
@@ -238,43 +239,29 @@ Category rules:
 - clothing: all garments and footwear including sneakers and boots
 - art & design: artwork, prints, books, stationery, design objects
 - home: furniture, kitchenware, candles, decor, bedding, appliances
-- technology: electronics, gadgets, phones, laptops, headphones, cameras
+- technology: electronics, gadgets, phones, laptops, headphones, cameras`;
 
-## Search query
-Also output a "search_query" field: a clean, concise shopping query (no filler words) that would find this exact product on Google Shopping. E.g. "Nike Air Force 1 Low Triple White CW2288-111" or "Chanel Classic Flap Medium Black Caviar Gold Hardware".`;
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
+      model: "gpt-4o",
       max_tokens: 600,
-      system: [
-        {
-          type: "text",
-          text: systemPrompt,
-          cache_control: { type: "ephemeral" }, // Cache the long system prompt
-        },
-      ],
       messages: [
+        { role: "system", content: systemPrompt },
         {
           role: "user",
           content: [
             {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: "image/jpeg",
-                data: base64,
-              },
-            },
-            {
               type: "text",
               text: "Look carefully at this image. First identify any brand logos, text, or distinctive design elements you can see. Then output the JSON identifying the exact product.",
+            },
+            {
+              type: "image_url",
+              image_url: { url: `data:image/jpeg;base64,${base64}` },
             },
           ],
         },
@@ -285,18 +272,18 @@ Also output a "search_query" field: a clean, concise shopping query (no filler w
   const data = await response.json();
 
   if (!response.ok) {
-    console.error("Claude error:", JSON.stringify(data));
+    console.error("OpenAI error:", JSON.stringify(data));
     throw new Error(data?.error?.message || "AI identification failed");
   }
 
-  const text = data.content?.[0]?.text || "";
+  const text = data.choices?.[0]?.message?.content || "";
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Could not parse AI response");
 
   const product = JSON.parse(jsonMatch[0]);
 
   const queryParts = [product.brand, product.name, product.model].filter(Boolean);
-  const searchQuery = queryParts.join(" ");
+  const searchQuery = product.search_query || queryParts.join(" ");
 
   return {
     brand: product.brand || "Unknown",
@@ -392,7 +379,7 @@ export default async function handler(req: any, res: any) {
       return tryGoogleLens(tempImage.url);
     })();
 
-    const claudePromise = identifyWithClaude(image, null).catch((e) => {
+    const claudePromise = identifyWithGPT(image, null).catch((e) => {
       console.error("[identify] Claude error:", e?.message);
       return null;
     });
