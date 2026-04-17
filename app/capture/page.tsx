@@ -69,7 +69,7 @@ export default function CapturePage() {
       streamRef.current = null;
     }
 
-    sessionStorage.setItem("gimme-capture", base64);
+    localStorage.setItem("gimme-capture", base64);
     router.push("/identified");
   }, [capturing, router]);
 
@@ -81,7 +81,7 @@ export default function CapturePage() {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64 = (reader.result as string).split(",")[1];
-      sessionStorage.setItem("gimme-capture", base64);
+      localStorage.setItem("gimme-capture", base64);
       router.push("/identified");
     };
     reader.readAsDataURL(file);

@@ -50,7 +50,7 @@ function IdentifiedContent() {
   const [pricesFailed, setPricesFailed] = useState(false);
 
   useEffect(() => {
-    const base64 = sessionStorage.getItem("gimme-capture");
+    const base64 = localStorage.getItem("gimme-capture");
 
     if (base64) {
       setImageData(base64);
@@ -162,7 +162,7 @@ function IdentifiedContent() {
       if (error) throw error;
       setSaved(true);
 
-      sessionStorage.removeItem("gimme-capture");
+      localStorage.removeItem("gimme-capture");
 
       setTimeout(() => router.push("/home"), 1200);
     } catch (err) {
@@ -350,7 +350,7 @@ function IdentifiedContent() {
           {/* Try again */}
           <button
             onClick={() => {
-              sessionStorage.removeItem("gimme-capture");
+              localStorage.removeItem("gimme-capture");
               router.push("/capture");
             }}
             className="mt-6 w-full max-w-sm rounded-full py-4 text-xs font-semibold uppercase tracking-[0.2em] transition-opacity hover:opacity-85"
@@ -503,7 +503,7 @@ function IdentifiedContent() {
             </button>
             <button
               onClick={() => {
-                sessionStorage.removeItem("gimme-capture");
+                localStorage.removeItem("gimme-capture");
 
                 router.push("/capture");
               }}
