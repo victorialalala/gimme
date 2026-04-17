@@ -60,7 +60,7 @@ export default async function handler(req: any, res: any) {
 
       const source = (item.source || "").trim();
       if (!source) continue;
-      if (isBlocked(item.link || "")) continue;
+      if (item.link && isBlocked(item.link)) continue;
 
       const key = source.toLowerCase();
 
