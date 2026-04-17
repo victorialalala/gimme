@@ -52,12 +52,28 @@ function IdentifiedContent() {
   useEffect(() => {
     const base64 = localStorage.getItem("gimme-capture");
 
-    if (base64) {
-      setImageData(base64);
-      identifyFromImage(base64);
-    } else {
+    if (!base64) {
       router.replace("/capture");
+      return;
     }
+
+    setImageData(base64);
+
+    // Restore cached result if we already identified this capture
+    const cached = localStorage.getItem("gimme-product");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        setProduct(parsed);
+        setStage("found");
+        fetchPrices(parsed);
+        return;
+      } catch {
+        // bad cache — fall through to re-identify
+      }
+    }
+
+    identifyFromImage(base64);
   }, [router]);
 
   async function identifyFromImage(base64: string) {
@@ -73,6 +89,7 @@ function IdentifiedContent() {
       const data = await res.json();
       const { similar_items, ...productData } = data;
       setProduct(productData as Product);
+      localStorage.setItem("gimme-product", JSON.stringify(productData));
 
       // Low confidence + similar items available → show "You might also like"
       if (productData.confidence < 70 && similar_items && similar_items.length > 0) {
@@ -163,6 +180,7 @@ function IdentifiedContent() {
       setSaved(true);
 
       localStorage.removeItem("gimme-capture");
+      localStorage.removeItem("gimme-product");
 
       setTimeout(() => router.push("/home"), 1200);
     } catch (err) {
@@ -351,6 +369,7 @@ function IdentifiedContent() {
           <button
             onClick={() => {
               localStorage.removeItem("gimme-capture");
+              localStorage.removeItem("gimme-product");
               router.push("/capture");
             }}
             className="mt-6 w-full max-w-sm rounded-full py-4 text-xs font-semibold uppercase tracking-[0.2em] transition-opacity hover:opacity-85"
@@ -448,12 +467,10 @@ function IdentifiedContent() {
             <div className="fade-up-2 mt-5 w-full max-w-sm">
               <div className="flex flex-col gap-2.5">
                 {retailers.map((r, i) => (
-                  <a
+                  <button
                     key={i}
-                    href={r.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between rounded-xl px-4 py-3.5 transition-colors tap-highlight"
+                    onClick={() => window.open(r.link, "_blank", "noopener,noreferrer")}
+                    className="flex w-full items-center justify-between rounded-xl px-4 py-3.5 transition-colors tap-highlight"
                     style={{
                       border: r.tag ? "1px solid #C8F135" : "1px solid #222222",
                       background: r.tag ? "rgba(200,241,53,0.05)" : "#141414",
@@ -482,7 +499,7 @@ function IdentifiedContent() {
                         <path d="M5 12h14M12 5l7 7-7 7" />
                       </svg>
                     </div>
-                  </a>
+                  </button>
                 ))}
               </div>
               <p className="mt-2.5 text-center text-[11px] font-light tracking-wide" style={{ fontFamily: "var(--font-inter)", color: "#444440" }}>
@@ -504,7 +521,7 @@ function IdentifiedContent() {
             <button
               onClick={() => {
                 localStorage.removeItem("gimme-capture");
-
+                localStorage.removeItem("gimme-product");
                 router.push("/capture");
               }}
               className="w-full py-3 text-xs font-light underline underline-offset-4 transition-opacity hover:opacity-70"
