@@ -204,12 +204,11 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // Filter: must have a usable link
-    const withLinks = results.filter((r: any) => r.link && isDirectLink(r.link));
+    // Filter: must have a usable link AND a real price
+    const withLinks = results.filter((r: any) => r.link && isDirectLink(r.link) && r.price_num > 0);
 
-    // Filter: remove anomalous prices (only if we have price data)
-    const withPrices = withLinks.filter((r: any) => r.price_num > 0);
-    const validated = withPrices.length >= 2 ? filterAnomalousPrices(withPrices) : withLinks;
+    // Filter: remove anomalous prices
+    const validated = withLinks.length >= 2 ? filterAnomalousPrices(withLinks) : withLinks;
 
     // Deduplicate by retailer domain
     const byRetailer = new Map<string, any>();
@@ -222,15 +221,10 @@ export default async function handler(req: any, res: any) {
     const deduped = Array.from(byRetailer.values());
 
     // Sort by price (lowest first), take top 5, tag the best
-    deduped.sort((a: any, b: any) => {
-      // Put "See price" items last
-      if (a.price_num === 0 && b.price_num > 0) return 1;
-      if (b.price_num === 0 && a.price_num > 0) return -1;
-      return a.price_num - b.price_num;
-    });
+    deduped.sort((a: any, b: any) => a.price_num - b.price_num);
 
     const final = deduped.slice(0, 5);
-    if (final.length > 0 && final[0].price_num > 0) {
+    if (final.length > 0) {
       final[0].tag = "Best Price";
     }
 
