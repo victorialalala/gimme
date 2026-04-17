@@ -136,8 +136,8 @@ export default async function handler(req: any, res: any) {
 
     console.log(`[prices] ${results.length} results with real prices`);
 
-    // Filter: must have a usable link AND a real price
-    const withLinks = results.filter((r: any) => r.link && isDirectLink(r.link) && r.price_num > 0);
+    // Filter: must have a link and a real price
+    const withLinks = results.filter((r: any) => r.link && r.price_num > 0);
 
     // Filter: remove anomalous prices
     const validated = withLinks.length >= 2 ? filterAnomalousPrices(withLinks) : withLinks;
