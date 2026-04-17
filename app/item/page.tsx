@@ -16,6 +16,7 @@ type ItemData = {
   description: string | null;
   image_url: string | null;
   created_at: string;
+  share_token: string | null;
 };
 
 type Retailer = {
@@ -132,8 +133,23 @@ function ItemContent() {
   }
 
   async function handleShare() {
-    if (!item) return;
-    const url = `${window.location.origin}/item?id=${itemId}`;
+    if (!item || !itemId || !user) return;
+
+    // Generate a share token if one doesn't exist yet
+    let token = item.share_token;
+    if (!token) {
+      token = crypto.randomUUID();
+      const { error } = await supabase
+        .from("saved_items")
+        .update({ share_token: token })
+        .eq("id", itemId)
+        .eq("user_id", user.id);
+      if (!error) {
+        setItem((prev) => prev ? { ...prev, share_token: token! } : prev);
+      }
+    }
+
+    const url = `${window.location.origin}/share?s=${token}`;
     const shareData = {
       title: `${item.brand} ${item.name}`,
       text: `Check out this ${item.brand} ${item.name}${item.price ? ` — ${item.price}` : ""}`,
@@ -144,7 +160,7 @@ function ItemContent() {
       try {
         await navigator.share(shareData);
       } catch {
-        // User cancelled or error — fall through to copy
+        // User cancelled
       }
     } else {
       await navigator.clipboard.writeText(url);
