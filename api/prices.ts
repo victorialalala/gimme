@@ -117,13 +117,12 @@ export default async function handler(req: any, res: any) {
       const source = (item.source || "Unknown").trim();
       const retailerKey = source.toLowerCase().replace(/\s+/g, "");
 
-      // Try to find a better direct link from organic results
+      // Prefer organic direct link, fall back to shopping link
       const organicLink = organicLinkByRetailer.get(retailerKey) ||
                           organicLinkByRetailer.get(source.toLowerCase());
       const link = organicLink || item.link || "";
 
-      // Skip if we have no usable link at all
-      if (!link || !isDirectLink(link)) continue;
+      if (!link) continue;
 
       results.push({
         retailer: source,
