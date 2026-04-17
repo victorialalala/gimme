@@ -38,6 +38,12 @@ function ItemContent() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
 
+  const [collections, setCollections] = useState<string[]>([]);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [moving, setMoving] = useState(false);
+
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     if (!user || !itemId) return;
 
@@ -57,6 +63,17 @@ function ItemContent() {
 
       setItem(data);
       setLoading(false);
+
+      // Load user's collections for the move modal
+      const { data: allItems } = await supabase
+        .from("saved_items")
+        .select("collection")
+        .eq("user_id", user!.id);
+
+      if (allItems) {
+        const unique = [...new Set(allItems.map((i) => i.collection).filter(Boolean))];
+        setCollections(unique);
+      }
 
       try {
         const res = await fetch("/api/prices", {
@@ -92,6 +109,47 @@ function ItemContent() {
       router.push("/home");
     } else {
       setDeleting(false);
+    }
+  }
+
+  async function handleMove(targetCollection: string) {
+    if (!user || !itemId || moving || targetCollection === item?.collection) {
+      setShowMoveModal(false);
+      return;
+    }
+    setMoving(true);
+    const { error } = await supabase
+      .from("saved_items")
+      .update({ collection: targetCollection })
+      .eq("id", itemId)
+      .eq("user_id", user.id);
+
+    if (!error) {
+      setItem((prev) => prev ? { ...prev, collection: targetCollection } : prev);
+    }
+    setMoving(false);
+    setShowMoveModal(false);
+  }
+
+  async function handleShare() {
+    if (!item) return;
+    const url = `${window.location.origin}/item?id=${itemId}`;
+    const shareData = {
+      title: `${item.brand} ${item.name}`,
+      text: `Check out this ${item.brand} ${item.name}${item.price ? ` — ${item.price}` : ""}`,
+      url,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {
+        // User cancelled or error — fall through to copy
+      }
+    } else {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   }
 
@@ -134,16 +192,33 @@ function ItemContent() {
         <p className="font-display text-sm font-bold uppercase tracking-[0.1em]" style={{ color: "#F5F5F0" }}>
           GIMME
         </p>
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="transition-colors"
-          style={{ color: "#666660" }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-4">
+          {/* Share */}
+          <button onClick={handleShare} className="transition-colors" style={{ color: copied ? "#C8F135" : "#666660" }}>
+            {copied ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                <polyline points="16 6 12 2 8 6" />
+                <line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
+            )}
+          </button>
+          {/* Delete */}
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="transition-colors"
+            style={{ color: "#666660" }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       {/* Product image */}
@@ -176,11 +251,20 @@ function ItemContent() {
           </p>
         )}
 
-        {/* Collection badge + date */}
+        {/* Collection badge (tappable to move) + date */}
         <div className="mt-3 flex items-center gap-2">
-          <span className="rounded-full px-3 py-1 text-[10px] font-medium capitalize uppercase tracking-[0.1em]" style={{ fontFamily: "var(--font-space)", background: "#141414", border: "1px solid #222222", color: "#C8F135" }}>
-            {item.collection || "Saved"}
-          </span>
+          <button
+            onClick={() => setShowMoveModal(true)}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1 transition-opacity active:opacity-60"
+            style={{ background: "#141414", border: "1px solid #222222" }}
+          >
+            <span className="text-[10px] font-medium capitalize uppercase tracking-[0.1em]" style={{ fontFamily: "var(--font-space)", color: "#C8F135" }}>
+              {item.collection || "Saved"}
+            </span>
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#C8F135" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
           <span className="text-[10px]" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
             Saved {formatDate(item.created_at)}
           </span>
@@ -274,6 +358,64 @@ function ItemContent() {
           {deleting ? "Removing..." : "Remove from Collection"}
         </button>
       </div>
+
+      {/* Move to Collection bottom sheet */}
+      {showMoveModal && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-50"
+            style={{ background: "rgba(0,0,0,0.6)" }}
+            onClick={() => setShowMoveModal(false)}
+          />
+          {/* Sheet */}
+          <div
+            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl px-5 pb-10 pt-6"
+            style={{ background: "#141414", border: "1px solid #222222" }}
+          >
+            <div className="mb-5 flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-space)", color: "#666660" }}>
+                Move to collection
+              </p>
+              <button onClick={() => setShowMoveModal(false)} style={{ color: "#666660" }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {collections.map((col) => {
+                const isCurrent = col === item.collection;
+                return (
+                  <button
+                    key={col}
+                    onClick={() => handleMove(col)}
+                    disabled={moving}
+                    className="flex items-center justify-between rounded-xl px-4 py-3.5 transition-opacity active:opacity-60"
+                    style={{
+                      background: isCurrent ? "rgba(200,241,53,0.08)" : "#1A1A1A",
+                      border: isCurrent ? "1px solid #C8F135" : "1px solid #2A2A2A",
+                    }}
+                  >
+                    <span
+                      className="text-sm font-medium capitalize"
+                      style={{ fontFamily: "var(--font-space)", color: isCurrent ? "#C8F135" : "#F5F5F0" }}
+                    >
+                      {col}
+                    </span>
+                    {isCurrent && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C8F135" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </main>
   );
 }
