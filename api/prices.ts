@@ -91,118 +91,51 @@ export default async function handler(req: any, res: any) {
     const shoppingResults = shoppingData.shopping_results || [];
     console.log(`[prices] Shopping: ${shoppingResults.length} results for "${rawQuery}"`);
 
-    let results: any[] = [];
-
-    // ── Path A: Organic search for direct retailer URLs, priced from shopping ──
+    // ── Primary: shopping results always have prices — use them directly ──
+    // Build a map of retailer → best organic link (to upgrade tracking URLs where possible)
+    const organicLinkByRetailer = new Map<string, string>();
     if (organicRes.ok) {
       const organicResults = organicData.organic_results || [];
-        console.log(`[prices] Organic search returned ${organicResults.length} results`);
-
-        // Also check inline shopping results from organic search
-        const inlineShopping = organicData.inline_shopping_results || organicData.shopping_results || [];
-
-        // Build a price lookup from the shopping results we already have
-        const priceByRetailer = new Map<string, { price: string; price_num: number }>();
-        for (const item of shoppingResults) {
-          const retailer = (item.source || "").toLowerCase();
-          if (retailer) {
-            priceByRetailer.set(retailer, {
-              price: item.price || "N/A",
-              price_num: item.extracted_price || 0,
-            });
+      for (const result of organicResults) {
+        if (!isDirectLink(result.link)) continue;
+        try {
+          const host = new URL(result.link).hostname.replace("www.", "");
+          const retailerName = host.split(".")[0].toLowerCase();
+          if (!organicLinkByRetailer.has(retailerName)) {
+            organicLinkByRetailer.set(retailerName, result.link);
           }
-        }
-
-        // Extract direct links from organic results — filter to product/shop pages
-        for (const result of organicResults) {
-          if (!isDirectLink(result.link)) continue;
-
-          // Skip non-retail pages (blogs, reviews, articles)
-          const url = result.link.toLowerCase();
-          const isLikelyShop =
-            url.includes("/product") ||
-            url.includes("/shop") ||
-            url.includes("/buy") ||
-            url.includes("/p/") ||
-            url.includes("/dp/") ||
-            url.includes("/item") ||
-            url.includes("/collections/") ||
-            url.includes("amazon.") ||
-            url.includes("nordstrom.") ||
-            url.includes("sephora.") ||
-            url.includes("bloomingdales.") ||
-            url.includes("saks.") ||
-            url.includes("net-a-porter.") ||
-            url.includes("ssense.") ||
-            url.includes("farfetch.") ||
-            url.includes("shopbop.") ||
-            url.includes("macys.") ||
-            url.includes("target.") ||
-            url.includes("walmart.") ||
-            url.includes("etsy.") ||
-            url.includes("diptyque.") ||
-            url.includes("byredo.") ||
-            url.includes("nike.") ||
-            url.includes("adidas.") ||
-            url.includes("apple.") ||
-            url.includes("bestbuy.");
-
-          if (!isLikelyShop) continue;
-
-          // Extract retailer name from domain
-          try {
-            const host = new URL(result.link).hostname.replace("www.", "");
-            const retailerName = host.split(".")[0];
-            const displayName = retailerName.charAt(0).toUpperCase() + retailerName.slice(1);
-
-            // Try to match price from shopping results
-            const priceInfo = priceByRetailer.get(retailerName) ||
-                              priceByRetailer.get(displayName.toLowerCase());
-
-            // Extract price from snippet if available
-            let price = priceInfo?.price || "See price";
-            let priceNum = priceInfo?.price_num || 0;
-
-            // Check if organic result has a price in its snippet
-            const snippetPrice = (result.snippet || "").match(/\$[\d,]+\.?\d*/);
-            if (snippetPrice && !priceInfo) {
-              price = snippetPrice[0];
-              priceNum = parsePrice(snippetPrice[0]);
-            }
-
-            results.push({
-              retailer: displayName,
-              title: result.title || "",
-              price,
-              price_num: priceNum,
-              link: result.link,
-              thumbnail: null,
-            });
-          } catch {
-            continue;
-          }
-        }
-
-      console.log(`[prices] Found ${results.length} direct retailer links from organic search`);
-    }
-
-    // ── Path C: Last resort — shopping results with price data but check for any direct links ──
-    if (results.length === 0) {
-      console.log("[prices] Last resort: checking shopping results for any direct links");
-      for (const item of shoppingResults) {
-        const link = item.link || "";
-        if (isDirectLink(link)) {
-          results.push({
-            retailer: item.source || "Unknown",
-            title: item.title || "",
-            price: item.price || "N/A",
-            price_num: item.extracted_price || 0,
-            link,
-            thumbnail: item.thumbnail || null,
-          });
-        }
+        } catch { continue; }
       }
     }
+
+    // Build results from shopping data (guaranteed to have prices)
+    const results: any[] = [];
+    for (const item of shoppingResults) {
+      const priceNum = item.extracted_price || 0;
+      if (priceNum <= 0) continue; // skip items with no price
+
+      const source = (item.source || "Unknown").trim();
+      const retailerKey = source.toLowerCase().replace(/\s+/g, "");
+
+      // Try to find a better direct link from organic results
+      const organicLink = organicLinkByRetailer.get(retailerKey) ||
+                          organicLinkByRetailer.get(source.toLowerCase());
+      const link = organicLink || item.link || "";
+
+      // Skip if we have no usable link at all
+      if (!link || !isDirectLink(link)) continue;
+
+      results.push({
+        retailer: source,
+        title: item.title || "",
+        price: item.price || `$${priceNum}`,
+        price_num: priceNum,
+        link,
+        thumbnail: item.thumbnail || null,
+      });
+    }
+
+    console.log(`[prices] ${results.length} results with real prices`);
 
     // Filter: must have a usable link AND a real price
     const withLinks = results.filter((r: any) => r.link && isDirectLink(r.link) && r.price_num > 0);
