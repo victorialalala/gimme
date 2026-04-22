@@ -74,6 +74,7 @@ export default function CapturePage() {
     }
 
     localStorage.setItem("gimme-capture", base64);
+    localStorage.removeItem("gimme-product");
     router.push("/identified");
   }, [capturing, router]);
 
@@ -86,6 +87,7 @@ export default function CapturePage() {
     reader.onloadend = () => {
       const base64 = (reader.result as string).split(",")[1];
       localStorage.setItem("gimme-capture", base64);
+      localStorage.removeItem("gimme-product");
       router.push("/identified");
     };
     reader.readAsDataURL(file);
