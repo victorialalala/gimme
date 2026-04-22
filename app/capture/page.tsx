@@ -52,6 +52,10 @@ export default function CapturePage() {
   const handleCapture = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || capturing) return;
 
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(15);
+    }
+
     setCapturing(true);
     const video = videoRef.current;
     const canvas = canvasRef.current;

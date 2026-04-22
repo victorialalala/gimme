@@ -48,6 +48,28 @@ function IdentifiedContent() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [pricesFailed, setPricesFailed] = useState(false);
+  const [scanMessage, setScanMessage] = useState("Looking at your photo");
+
+  useEffect(() => {
+    if (stage !== "scanning") return;
+    const messages = [
+      "Looking at your photo",
+      "Searching product databases",
+      "Matching the details",
+    ];
+    let i = 0;
+    const interval = setInterval(() => {
+      i = (i + 1) % messages.length;
+      setScanMessage(messages[i]);
+    }, 1600);
+    return () => clearInterval(interval);
+  }, [stage]);
+
+  useEffect(() => {
+    if (stage === "found" && typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([10, 40, 20]);
+    }
+  }, [stage]);
 
   useEffect(() => {
     const base64 = localStorage.getItem("gimme-capture");
@@ -237,14 +259,14 @@ function IdentifiedContent() {
               <div className="h-0.5 w-8 overflow-hidden rounded-full" style={{ background: "#222222" }}>
                 <div className="h-full w-1/3 rounded-full loading-bar" style={{ background: "#C8F135" }} />
               </div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
-                Identifying...
+              <p className="text-[10px] font-medium uppercase tracking-[0.15em] transition-opacity duration-300" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
+                {scanMessage}
               </p>
             </div>
           </div>
 
-          <p className="mt-6 text-center text-[10px] font-medium uppercase tracking-[0.2em]" style={{ fontFamily: "var(--font-space)", color: "#666660" }}>
-            Scanning product databases...
+          <p className="mt-6 text-center text-[10px] font-medium uppercase tracking-[0.2em] transition-opacity duration-300" style={{ fontFamily: "var(--font-space)", color: "#666660" }}>
+            {scanMessage}
           </p>
         </div>
       )}
@@ -408,7 +430,10 @@ function IdentifiedContent() {
             >
               <div
                 className="h-2 w-2 rounded-full"
-                style={{ background: product.confidence >= 70 ? "#C8F135" : product.confidence >= 40 ? "#C8F135" : "#666660", opacity: product.confidence >= 70 ? 1 : 0.5 }}
+                style={{
+                  background: product.confidence >= 40 ? "#C8F135" : "#666660",
+                  opacity: product.confidence >= 70 ? 1 : product.confidence >= 40 ? 0.5 : 1,
+                }}
               />
               <span className="text-[10px] font-medium uppercase tracking-[0.08em]" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
                 {product.confidence >= 85
@@ -462,6 +487,28 @@ function IdentifiedContent() {
             </p>
           </div>
 
+          {/* Retailer skeletons while prices load */}
+          {retailers.length === 0 && !pricesFailed && (
+            <div className="fade-up-2 mt-5 w-full max-w-sm">
+              <div className="flex flex-col gap-2.5">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="flex w-full items-center justify-between rounded-xl px-4 py-3.5 skeleton-shimmer"
+                    style={{
+                      border: "1px solid #222222",
+                      background: "#141414",
+                      animationDelay: `${i * 120}ms`,
+                    }}
+                  >
+                    <div className="h-3 w-24 rounded" style={{ background: "#1F1F1F" }} />
+                    <div className="h-3 w-14 rounded" style={{ background: "#1F1F1F" }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Retailers */}
           {retailers.length > 0 && (
             <div className="fade-up-2 mt-5 w-full max-w-sm">
@@ -469,7 +516,9 @@ function IdentifiedContent() {
                 {retailers.map((r, i) => (
                   <button
                     key={i}
-                    onClick={() => window.open(r.link, "_blank", "noopener,noreferrer")}
+                    onClick={() => {
+                      if (r.link) window.open(r.link, "_blank", "noopener,noreferrer");
+                    }}
                     className="flex w-full items-center justify-between rounded-xl px-4 py-3.5 transition-colors tap-highlight"
                     style={{
                       border: r.tag ? "1px solid #C8F135" : "1px solid #222222",

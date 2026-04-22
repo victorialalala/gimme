@@ -72,6 +72,15 @@ body {
   animation: loading-bar 1.5s ease infinite;
 }
 
+/* Skeleton shimmer — subtle breathing for loading rows */
+@keyframes skeleton-shimmer {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+.skeleton-shimmer {
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
 /* Tap state */
 .tap-highlight:active {
   background: rgba(200,241,53,0.08) !important;
