@@ -1,5 +1,5 @@
 export const config = {
-  maxDuration: 20,
+  maxDuration: 15,
 };
 
 const BLOCKED_DOMAINS = [
@@ -11,32 +11,6 @@ const BLOCKED_DOMAINS = [
   "senser.", "dhgate.", "aliexpress.", "alibaba.", "joom.",
   "wish.com", "temu.", "shein.",
 ];
-
-function isGoogleLink(url: string): boolean {
-  if (!url) return true;
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-    return host === "google.com" || host.endsWith(".google.com");
-  } catch {
-    return false;
-  }
-}
-
-// Google click/redirect URLs embed the real destination in a query param.
-// Pull it out so the user lands on the actual retailer, not a Google page.
-function extractDirectUrl(link: string | undefined): string | null {
-  if (!link) return null;
-  if (!isGoogleLink(link)) return link;
-  try {
-    const u = new URL(link);
-    const candidates = ["adurl", "url", "q", "dest", "destination"];
-    for (const p of candidates) {
-      const v = u.searchParams.get(p);
-      if (v && /^https?:\/\//i.test(v) && !isGoogleLink(v)) return v;
-    }
-  } catch {}
-  return null;
-}
 
 function parsePrice(priceStr: string): number {
   if (!priceStr) return 0;
@@ -95,10 +69,8 @@ export default async function handler(req: any, res: any) {
     const rawQuery = search_query || [brand, name, model].filter(Boolean).join(" ");
     const brandLower = (brand || "").toLowerCase().trim();
 
-    // Fast path: single google_shopping call, extract direct retailer URLs
-    // from Google redirect links.
     const shoppingUrl = `https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(rawQuery)}&api_key=${apiKey}&gl=us&hl=en&num=10`;
-    const shoppingRes = await fetch(shoppingUrl, { signal: AbortSignal.timeout(8000) });
+    const shoppingRes = await fetch(shoppingUrl, { signal: AbortSignal.timeout(10000) });
     const shoppingData = await shoppingRes.json();
 
     if (!shoppingRes.ok) {
@@ -117,21 +89,17 @@ export default async function handler(req: any, res: any) {
 
       const source = (item.source || "").trim();
       if (!source) continue;
-      if (isBlockedSource(source)) continue;
+      if (isBlocked(item.link || "") || isBlockedSource(source)) continue;
 
       // Brand sanity check: if we know the brand, skip results whose title
-      // doesn't mention it.
+      // doesn't mention it. Prevents mismatched items (wrong bag) from showing.
       if (brandLower.length > 2) {
         const titleLower = (item.title || "").toLowerCase();
         if (!titleLower.includes(brandLower)) continue;
       }
 
-      // Extract a direct retailer URL. Skip the result if we can't.
-      const direct =
-        extractDirectUrl(item.link) ||
-        extractDirectUrl(item.product_link);
-      if (!direct) continue;
-      if (isBlocked(direct)) continue;
+      const link = item.link || item.product_link || "";
+      if (!link) continue;
 
       const key = source.toLowerCase();
       const entry: Retailer = {
@@ -139,7 +107,7 @@ export default async function handler(req: any, res: any) {
         title: item.title || "",
         price: item.price || `$${priceNum}`,
         price_num: priceNum,
-        link: direct,
+        link,
         thumbnail: item.thumbnail || null,
       };
       if (!seen.has(key) || priceNum < seen.get(key)!.price_num) {
@@ -148,61 +116,6 @@ export default async function handler(req: any, res: any) {
     }
 
     let results = Array.from(seen.values()).sort((a, b) => a.price_num - b.price_num);
-
-    // If fast path produced <2 usable retailers, fall back to google_product
-    // engine which returns explicit sellers with direct URLs.
-    if (results.length < 2) {
-      const topMatch = shoppingResults.find((r: any) => {
-        if (!r.product_id) return false;
-        if (brandLower.length > 2) {
-          const titleLower = (r.title || "").toLowerCase();
-          if (!titleLower.includes(brandLower)) return false;
-        }
-        return true;
-      });
-
-      if (topMatch?.product_id) {
-        try {
-          const productUrl = `https://serpapi.com/search.json?engine=google_product&product_id=${encodeURIComponent(topMatch.product_id)}&api_key=${apiKey}&gl=us&hl=en&offers=1`;
-          const productRes = await fetch(productUrl, { signal: AbortSignal.timeout(8000) });
-          const productData = await productRes.json();
-          const onlineSellers = productData?.sellers_results?.online_sellers || [];
-          console.log(`[prices] ${onlineSellers.length} sellers for product ${topMatch.product_id}`);
-
-          for (const s of onlineSellers) {
-            const sName = (s.name || "").trim();
-            const link = s.link || "";
-            if (!sName || !link) continue;
-            if (isGoogleLink(link)) continue;
-            if (isBlocked(link) || isBlockedSource(sName)) continue;
-
-            const priceStr = s.total_price || s.base_price || "";
-            const priceNum =
-              s.extracted_total_price ||
-              s.extracted_base_price ||
-              parsePrice(priceStr);
-            if (priceNum <= 0) continue;
-
-            const key = sName.toLowerCase();
-            const entry: Retailer = {
-              retailer: sName,
-              title: topMatch.title || "",
-              price: priceStr || `$${priceNum}`,
-              price_num: priceNum,
-              link,
-              thumbnail: topMatch.thumbnail || null,
-            };
-            if (!seen.has(key) || priceNum < seen.get(key)!.price_num) {
-              seen.set(key, entry);
-            }
-          }
-          results = Array.from(seen.values()).sort((a, b) => a.price_num - b.price_num);
-        } catch (err: any) {
-          console.warn("[prices] google_product fallback failed:", err?.message || err);
-        }
-      }
-    }
-
     results = filterScamPrices(results).slice(0, 5);
     if (results.length > 0) results[0].tag = "Best Price";
 
