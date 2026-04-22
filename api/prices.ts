@@ -1,5 +1,5 @@
 export const config = {
-  maxDuration: 15,
+  maxDuration: 10,
 };
 
 const BLOCKED_DOMAINS = [
@@ -12,7 +12,57 @@ const BLOCKED_DOMAINS = [
   "wish.com", "temu.", "shein.",
 ];
 
-// Common words that aren't distinctive enough to match on their own
+// Search URLs for known retailers — used to build deterministic direct links
+// so we never send the user to a Google redirect page.
+const RETAILER_SEARCH_URLS: Record<string, string> = {
+  "nordstrom": "https://www.nordstrom.com/sr?keyword=",
+  "saks fifth avenue": "https://www.saksfifthavenue.com/search?q=",
+  "saks": "https://www.saksfifthavenue.com/search?q=",
+  "bloomingdale's": "https://www.bloomingdales.com/shop/search?keyword=",
+  "bloomingdales": "https://www.bloomingdales.com/shop/search?keyword=",
+  "neiman marcus": "https://www.neimanmarcus.com/search.jsp?from=brSearch&q=",
+  "bergdorf goodman": "https://www.bergdorfgoodman.com/search.jsp?from=brSearch&q=",
+  "mytheresa": "https://www.mytheresa.com/us/en/search?q=",
+  "net-a-porter": "https://www.net-a-porter.com/en-us/search?q=",
+  "net a porter": "https://www.net-a-porter.com/en-us/search?q=",
+  "farfetch": "https://www.farfetch.com/shopping/search/items.aspx?q=",
+  "ssense": "https://www.ssense.com/en-us/search?keyword=",
+  "matchesfashion": "https://www.matchesfashion.com/us/search?q=",
+  "matches fashion": "https://www.matchesfashion.com/us/search?q=",
+  "24s": "https://www.24s.com/en-us/search?q=",
+  "moda operandi": "https://www.modaoperandi.com/search?q=",
+  "prada": "https://www.prada.com/us/en/search.html?q=",
+  "gucci": "https://www.gucci.com/us/en/search?searchString=",
+  "louis vuitton": "https://us.louisvuitton.com/eng-us/search/",
+  "hermès": "https://www.hermes.com/us/en/search/?s=",
+  "hermes": "https://www.hermes.com/us/en/search/?s=",
+  "chanel": "https://www.chanel.com/us/search/?query=",
+  "dior": "https://www.dior.com/en_us/search?q=",
+  "bottega veneta": "https://www.bottegaveneta.com/en-us/search?q=",
+  "celine": "https://www.celine.com/en-us/search?q=",
+  "saint laurent": "https://www.ysl.com/en-us/search?q=",
+  "ysl": "https://www.ysl.com/en-us/search?q=",
+  "balenciaga": "https://www.balenciaga.com/en-us/search?q=",
+  "loewe": "https://www.loewe.com/usa/en/search?q=",
+  "fendi": "https://www.fendi.com/us-en/search?q=",
+  "valentino": "https://www.valentino.com/en-us/search?search=",
+  "miu miu": "https://www.miumiu.com/us/en/search.html?q=",
+  "coach": "https://www.coach.com/search?q=",
+  "michael kors": "https://www.michaelkors.com/search?q=",
+  "tory burch": "https://www.toryburch.com/en-us/search/?q=",
+  "kate spade": "https://www.katespade.com/search?q=",
+  "marc jacobs": "https://www.marcjacobs.com/search?q=",
+  "shopbop": "https://www.shopbop.com/search?q=",
+  "revolve": "https://www.revolve.com/r/Search.jsp?search=",
+  "nap": "https://www.net-a-porter.com/en-us/search?q=",
+  "amazon": "https://www.amazon.com/s?k=",
+  "amazon.com": "https://www.amazon.com/s?k=",
+  "target": "https://www.target.com/s?searchTerm=",
+  "walmart": "https://www.walmart.com/search?q=",
+  "macy's": "https://www.macys.com/shop/search?keyword=",
+  "macys": "https://www.macys.com/shop/search?keyword=",
+};
+
 const GENERIC_TOKENS = new Set([
   "mini", "small", "medium", "large", "leather", "saffiano",
   "bag", "purse", "tote", "handbag", "wallet", "crossbody",
@@ -29,23 +79,14 @@ function parsePrice(priceStr: string): number {
   return parseFloat(priceStr.replace(/[^0-9.]/g, "")) || 0;
 }
 
-function isBlocked(url: string): boolean {
-  if (!url) return false;
-  const lower = url.toLowerCase();
-  return BLOCKED_DOMAINS.some((d) => lower.includes(d));
-}
-
 function isBlockedSource(source: string): boolean {
   if (!source) return false;
   const lower = source.toLowerCase();
   return BLOCKED_DOMAINS.some((d) => lower.includes(d.replace(".", "")));
 }
 
-// Must match brand AND at least one distinctive token from the product name
-// (so "Prada Saffiano Mini-Bag" doesn't match an "Arqué" search).
 function matchesProduct(title: string, brand: string, productName: string): boolean {
   const titleNorm = normalize(title);
-
   const brandNorm = normalize(brand);
   if (brandNorm.length > 2 && !titleNorm.includes(brandNorm)) return false;
 
@@ -59,8 +100,40 @@ function matchesProduct(title: string, brand: string, productName: string): bool
       if (!anyMatch) return false;
     }
   }
-
   return true;
+}
+
+// Build a direct search URL on the retailer's own site for this product.
+// Returns null if the retailer isn't on our known list (we'd rather skip
+// than risk another Google-redirect disappointment).
+function buildRetailerLink(source: string, brand: string, name: string): string | null {
+  const sourceLower = source.toLowerCase().trim();
+  let template: string | null = null;
+
+  // Exact match first
+  if (RETAILER_SEARCH_URLS[sourceLower]) {
+    template = RETAILER_SEARCH_URLS[sourceLower];
+  } else {
+    // Fuzzy: any key that is contained in / contains the source
+    for (const [k, v] of Object.entries(RETAILER_SEARCH_URLS)) {
+      if (sourceLower.includes(k) || k.includes(sourceLower)) {
+        template = v;
+        break;
+      }
+    }
+  }
+
+  if (!template) return null;
+
+  // If the retailer is the brand itself, searching "Prada prada arqué" is
+  // redundant — just search the product name.
+  const brandLower = (brand || "").toLowerCase();
+  const searchTerm =
+    brandLower && sourceLower.includes(brandLower)
+      ? (name || brand)
+      : [brand, name].filter(Boolean).join(" ");
+
+  return template + encodeURIComponent(searchTerm);
 }
 
 type Retailer = {
@@ -73,7 +146,6 @@ type Retailer = {
   tag?: string;
 };
 
-// Drop outlier-low prices that signal counterfeit / scam sellers.
 function filterScamPrices(rs: Retailer[]): Retailer[] {
   if (rs.length < 3) return rs;
   const sorted = rs.map((r) => r.price_num).sort((a, b) => a - b);
@@ -101,9 +173,8 @@ export default async function handler(req: any, res: any) {
   try {
     const rawQuery = search_query || [brand, name, model].filter(Boolean).join(" ");
 
-    // Step 1: google_shopping to find candidates
     const shoppingUrl = `https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(rawQuery)}&api_key=${apiKey}&gl=us&hl=en&num=10`;
-    const shoppingRes = await fetch(shoppingUrl, { signal: AbortSignal.timeout(7000) });
+    const shoppingRes = await fetch(shoppingUrl, { signal: AbortSignal.timeout(8000) });
     const shoppingData = await shoppingRes.json();
 
     if (!shoppingRes.ok) {
@@ -114,90 +185,36 @@ export default async function handler(req: any, res: any) {
     const shoppingResults = shoppingData.shopping_results || [];
     console.log(`[prices] ${shoppingResults.length} shopping results for "${rawQuery}"`);
 
-    // Keep only results that match brand + distinctive product name tokens
-    const matched = shoppingResults.filter((r: any) =>
-      matchesProduct(r.title || "", brand || "", name || "")
-    );
-    console.log(`[prices] ${matched.length} matched after product filter`);
+    const seen = new Map<string, Retailer>();
 
-    if (matched.length === 0) {
-      return res.status(200).json({ retailers: [] });
-    }
+    for (const item of shoppingResults) {
+      const priceNum = item.extracted_price || parsePrice(item.price || "");
+      if (priceNum <= 0) continue;
 
-    // Step 2: try google_product on the top match for direct retailer URLs.
-    // Aggressive 5s timeout — if it's slow, fall back to shopping results.
-    const topMatch = matched.find((r: any) => r.product_id);
-    const retailerMap = new Map<string, Retailer>();
+      const source = (item.source || "").trim();
+      if (!source) continue;
+      if (isBlockedSource(source)) continue;
 
-    if (topMatch?.product_id) {
-      try {
-        const productUrl = `https://serpapi.com/search.json?engine=google_product&product_id=${encodeURIComponent(topMatch.product_id)}&api_key=${apiKey}&gl=us&hl=en&offers=1`;
-        const productRes = await fetch(productUrl, { signal: AbortSignal.timeout(5000) });
-        const productData = await productRes.json();
-        const sellers = productData?.sellers_results?.online_sellers || [];
-        console.log(`[prices] ${sellers.length} sellers via google_product`);
+      if (!matchesProduct(item.title || "", brand || "", name || "")) continue;
 
-        for (const s of sellers) {
-          const sName = (s.name || "").trim();
-          const link = s.link || "";
-          if (!sName || !link) continue;
-          if (isBlocked(link) || isBlockedSource(sName)) continue;
+      const link = buildRetailerLink(source, brand || "", name || "");
+      if (!link) continue;
 
-          const priceStr = s.total_price || s.base_price || "";
-          const priceNum =
-            s.extracted_total_price ||
-            s.extracted_base_price ||
-            parsePrice(priceStr);
-          if (priceNum <= 0) continue;
-
-          const key = sName.toLowerCase();
-          const entry: Retailer = {
-            retailer: sName,
-            title: topMatch.title || "",
-            price: priceStr || `$${priceNum}`,
-            price_num: priceNum,
-            link,
-            thumbnail: topMatch.thumbnail || null,
-          };
-          if (!retailerMap.has(key) || priceNum < retailerMap.get(key)!.price_num) {
-            retailerMap.set(key, entry);
-          }
-        }
-      } catch (err: any) {
-        console.warn("[prices] google_product skipped:", err?.message || err);
+      const key = source.toLowerCase();
+      const entry: Retailer = {
+        retailer: source,
+        title: item.title || "",
+        price: item.price || `$${priceNum}`,
+        price_num: priceNum,
+        link,
+        thumbnail: item.thumbnail || null,
+      };
+      if (!seen.has(key) || priceNum < seen.get(key)!.price_num) {
+        seen.set(key, entry);
       }
     }
 
-    // Fallback: if google_product yielded nothing, use the matched shopping
-    // results (still better than nothing, even though links are Google-hosted).
-    if (retailerMap.size === 0) {
-      for (const item of matched) {
-        const priceNum = item.extracted_price || parsePrice(item.price || "");
-        if (priceNum <= 0) continue;
-
-        const source = (item.source || "").trim();
-        if (!source) continue;
-        if (isBlocked(item.link || "") || isBlockedSource(source)) continue;
-
-        const link = item.link || item.product_link || "";
-        if (!link) continue;
-
-        const key = source.toLowerCase();
-        const entry: Retailer = {
-          retailer: source,
-          title: item.title || "",
-          price: item.price || `$${priceNum}`,
-          price_num: priceNum,
-          link,
-          thumbnail: item.thumbnail || null,
-        };
-        if (!retailerMap.has(key) || priceNum < retailerMap.get(key)!.price_num) {
-          retailerMap.set(key, entry);
-        }
-      }
-    }
-
-    let results = Array.from(retailerMap.values()).sort((a, b) => a.price_num - b.price_num);
+    let results = Array.from(seen.values()).sort((a, b) => a.price_num - b.price_num);
     results = filterScamPrices(results).slice(0, 5);
     if (results.length > 0) results[0].tag = "Best Price";
 
