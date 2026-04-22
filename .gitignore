@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code local session state
+.claude/
+
+# Scratch preview dirs
+.lov-preview/
+
+# Business docs (keep out of repo)
+gimme_investor_one_pager.html
