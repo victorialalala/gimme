@@ -7,7 +7,20 @@ const BLOCKED_DOMAINS = [
   "therealreal.", "vestiaire.", "grailed.", "stockx.",
   "offerup.", "craigslist.", "facebook.com/marketplace",
   "tradesy.", "rebag.", "luxedh.", "fashionphile.",
+  // Risky / high-variance marketplaces and grey-market sellers
+  "senser.", "dhgate.", "aliexpress.", "alibaba.", "joom.",
+  "wish.com", "temu.", "shein.",
 ];
+
+function isGoogleLink(url: string): boolean {
+  if (!url) return true;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "google.com" || host.endsWith(".google.com");
+  } catch {
+    return false;
+  }
+}
 
 function parsePrice(priceStr: string): number {
   if (!priceStr) return 0;
@@ -71,9 +84,10 @@ export default async function handler(req: any, res: any) {
       if (!source) continue;
       if (isBlocked(item.link || "") || isBlockedSource(source)) continue;
 
-      // Require a direct product link — no Google-search fallback, which
-      // was sending users to the wrong product.
-      const retailerLink = item.link || item.product_link;
+      // Require a direct retailer link. Skip Google-hosted URLs because
+      // they redirect into a search page instead of the product.
+      const candidates = [item.link, item.product_link].filter(Boolean);
+      const retailerLink = candidates.find((u: string) => !isGoogleLink(u));
       if (!retailerLink) continue;
 
       // Sanity check: if we know the brand, the retailer's title should mention it.
