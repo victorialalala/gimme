@@ -334,6 +334,19 @@ function extractPriceFromLens(data: any): string {
   return "";
 }
 
+// Detects junk product names — ISBN/UPC/SKU sequences, mostly-digits strings,
+// or absurdly long titles that are really full Amazon-style listings.
+// Used to decide whether to trust a fast Lens match or wait for GPT's cleaner parse.
+function nameLooksNoisy(name: string): boolean {
+  if (!name) return true;
+  if (/\d{6,}/.test(name)) return true;
+  if (name.length > 80) return true;
+  const letters = (name.match(/[a-zA-Z]/g) || []).length;
+  const digits = (name.match(/\d/g) || []).length;
+  if (letters > 0 && digits > letters) return true;
+  return false;
+}
+
 function guessCategory(text: string): string {
   const t = text.toLowerCase();
 
@@ -388,22 +401,30 @@ export default async function handler(req: any, res: any) {
     lensVisualMatches = lensOutput.visualMatches;
     const lensResult = lensOutput.result;
 
-    // If Lens gave a high-confidence result (≥70%), use it — don't wait on Claude
-    if (lensResult && lensResult.confidence >= 70) {
-      result = lensResult;
+    // Fast path: trust Lens only if confident AND the name isn't noisy (ISBN/SKU junk)
+    const lensIsClean = lensResult && lensResult.confidence >= 70 && !nameLooksNoisy(lensResult.name);
+
+    if (lensIsClean) {
+      result = lensResult!;
       console.log(`[identify] Lens match: "${result.name}" (${result.confidence}%)`);
     } else {
       const claudeResult = await claudePromise;
-      if (!claudeResult) throw new Error("Identification failed");
 
-      // If we had a weak Lens hint and Claude agrees, boost confidence
-      if (lensResult && claudeResult.brand.toLowerCase() === lensResult.brand.toLowerCase()) {
-        claudeResult.confidence = Math.min(95, claudeResult.confidence + 15);
-        claudeResult.match_source = "lens"; // Credit the cross-validated Lens match
+      if (claudeResult) {
+        // Cross-validate: if Lens and Claude agree on brand, boost confidence
+        if (lensResult && claudeResult.brand.toLowerCase() === lensResult.brand.toLowerCase()) {
+          claudeResult.confidence = Math.min(95, claudeResult.confidence + 15);
+          claudeResult.match_source = "lens";
+        }
+        result = claudeResult;
+        console.log(`[identify] Claude result: "${result.name}" by ${result.brand} (${result.confidence}%)`);
+      } else if (lensResult) {
+        // Claude failed — fall back to Lens even if name looked noisy
+        result = lensResult;
+        console.log(`[identify] Claude failed, falling back to Lens: "${result.name}"`);
+      } else {
+        throw new Error("Identification failed");
       }
-
-      result = claudeResult;
-      console.log(`[identify] Claude result: "${result.name}" by ${result.brand} (${result.confidence}%)`);
     }
 
     // Clean up temp image

@@ -71,13 +71,18 @@ export default async function handler(req: any, res: any) {
 
       const key = source.toLowerCase();
 
+      const retailerLink =
+        item.link ||
+        item.product_link ||
+        `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(`${source} ${item.title || rawQuery}`)}`;
+
       if (!seen.has(key) || priceNum < seen.get(key).price_num) {
         seen.set(key, {
           retailer: source,
           title: item.title || "",
           price: item.price || `$${priceNum}`,
           price_num: priceNum,
-          link: item.link || "",
+          link: retailerLink,
           thumbnail: item.thumbnail || null,
         });
       }

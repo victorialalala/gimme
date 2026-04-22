@@ -131,7 +131,9 @@ function ShareContent() {
               Best price
             </p>
             <button
-              onClick={() => window.open(bestRetailer.link, "_blank", "noopener,noreferrer")}
+              onClick={() => {
+                if (bestRetailer.link) window.open(bestRetailer.link, "_blank", "noopener,noreferrer");
+              }}
               className="w-full flex items-center justify-between rounded-2xl px-5 py-5 transition-opacity active:opacity-70"
               style={{ background: "#C8F135" }}
             >
