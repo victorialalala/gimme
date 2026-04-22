@@ -1,5 +1,5 @@
 export const config = {
-  maxDuration: 15,
+  maxDuration: 20,
 };
 
 const BLOCKED_DOMAINS = [
@@ -39,6 +39,26 @@ function isBlockedSource(source: string): boolean {
   return BLOCKED_DOMAINS.some((d) => lower.includes(d.replace(".", "")));
 }
 
+type Retailer = {
+  retailer: string;
+  title: string;
+  price: string;
+  price_num: number;
+  link: string;
+  thumbnail: string | null;
+  tag?: string;
+};
+
+// Drop outlier-low prices that signal counterfeit / scam sellers.
+// If >=3 results, anything below 40% of the median gets filtered out.
+function filterScamPrices(rs: Retailer[]): Retailer[] {
+  if (rs.length < 3) return rs;
+  const sorted = rs.map((r) => r.price_num).sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const threshold = median * 0.4;
+  return rs.filter((r) => r.price_num >= threshold);
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -57,9 +77,10 @@ export default async function handler(req: any, res: any) {
 
   try {
     const rawQuery = search_query || [brand, name, model].filter(Boolean).join(" ");
+    const brandLower = (brand || "").toLowerCase().trim();
 
+    // Step 1: google_shopping to find the top matching product and its product_id.
     const shoppingUrl = `https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(rawQuery)}&api_key=${apiKey}&gl=us&hl=en&num=10`;
-
     const shoppingRes = await fetch(shoppingUrl);
     const shoppingData = await shoppingRes.json();
 
@@ -71,10 +92,66 @@ export default async function handler(req: any, res: any) {
     const shoppingResults = shoppingData.shopping_results || [];
     console.log(`[prices] ${shoppingResults.length} shopping results for "${rawQuery}"`);
 
-    // Dedupe by retailer, keep lowest price per retailer
-    const seen = new Map<string, any>();
+    const topMatch = shoppingResults.find((r: any) => {
+      if (!r.product_id) return false;
+      if (brandLower.length > 2) {
+        const titleLower = (r.title || "").toLowerCase();
+        if (!titleLower.includes(brandLower)) return false;
+      }
+      return true;
+    });
 
-    const brandLower = (brand || "").toLowerCase().trim();
+    // Step 2: if we have a product_id, fetch sellers (direct merchant URLs).
+    if (topMatch?.product_id) {
+      const productUrl = `https://serpapi.com/search.json?engine=google_product&product_id=${encodeURIComponent(topMatch.product_id)}&api_key=${apiKey}&gl=us&hl=en&offers=1`;
+      const productRes = await fetch(productUrl);
+      const productData = await productRes.json();
+
+      const onlineSellers = productData?.sellers_results?.online_sellers || [];
+      console.log(`[prices] ${onlineSellers.length} sellers for product ${topMatch.product_id}`);
+
+      const sellerMap = new Map<string, Retailer>();
+      for (const s of onlineSellers) {
+        const sName = (s.name || "").trim();
+        const link = s.link || "";
+        if (!sName || !link) continue;
+        if (isGoogleLink(link)) continue;
+        if (isBlocked(link) || isBlockedSource(sName)) continue;
+
+        const priceStr = s.total_price || s.base_price || "";
+        const priceNum =
+          s.extracted_total_price ||
+          s.extracted_base_price ||
+          parsePrice(priceStr);
+        if (priceNum <= 0) continue;
+
+        const key = sName.toLowerCase();
+        const entry: Retailer = {
+          retailer: sName,
+          title: topMatch.title || "",
+          price: priceStr || `$${priceNum}`,
+          price_num: priceNum,
+          link,
+          thumbnail: topMatch.thumbnail || null,
+        };
+        if (!sellerMap.has(key) || priceNum < (sellerMap.get(key)!.price_num)) {
+          sellerMap.set(key, entry);
+        }
+      }
+
+      let retailers = Array.from(sellerMap.values()).sort((a, b) => a.price_num - b.price_num);
+      retailers = filterScamPrices(retailers).slice(0, 5);
+      if (retailers.length > 0) retailers[0].tag = "Best Price";
+
+      if (retailers.length > 0) {
+        console.log(`[prices] Returning ${retailers.length} retailers via google_product`);
+        return res.status(200).json({ retailers });
+      }
+      // If google_product yielded nothing usable, fall through to shopping fallback.
+    }
+
+    // Fallback: use google_shopping results, filter out Google-redirect links.
+    const seen = new Map<string, Retailer>();
 
     for (const item of shoppingResults) {
       const priceNum = item.extracted_price || parsePrice(item.price || "");
@@ -84,42 +161,34 @@ export default async function handler(req: any, res: any) {
       if (!source) continue;
       if (isBlocked(item.link || "") || isBlockedSource(source)) continue;
 
-      // Require a direct retailer link. Skip Google-hosted URLs because
-      // they redirect into a search page instead of the product.
       const candidates = [item.link, item.product_link].filter(Boolean);
       const retailerLink = candidates.find((u: string) => !isGoogleLink(u));
       if (!retailerLink) continue;
 
-      // Sanity check: if we know the brand, the retailer's title should mention it.
       if (brandLower.length > 2) {
         const titleLower = (item.title || "").toLowerCase();
         if (!titleLower.includes(brandLower)) continue;
       }
 
       const key = source.toLowerCase();
-
-      if (!seen.has(key) || priceNum < seen.get(key).price_num) {
-        seen.set(key, {
-          retailer: source,
-          title: item.title || "",
-          price: item.price || `$${priceNum}`,
-          price_num: priceNum,
-          link: retailerLink,
-          thumbnail: item.thumbnail || null,
-        });
+      const entry: Retailer = {
+        retailer: source,
+        title: item.title || "",
+        price: item.price || `$${priceNum}`,
+        price_num: priceNum,
+        link: retailerLink,
+        thumbnail: item.thumbnail || null,
+      };
+      if (!seen.has(key) || priceNum < (seen.get(key)!.price_num)) {
+        seen.set(key, entry);
       }
     }
 
-    // Sort by price ascending, take top 5
-    const results = Array.from(seen.values())
-      .sort((a, b) => a.price_num - b.price_num)
-      .slice(0, 5);
+    let results = Array.from(seen.values()).sort((a, b) => a.price_num - b.price_num);
+    results = filterScamPrices(results).slice(0, 5);
+    if (results.length > 0) results[0].tag = "Best Price";
 
-    if (results.length > 0) {
-      results[0].tag = "Best Price";
-    }
-
-    console.log(`[prices] Returning ${results.length} retailers`);
+    console.log(`[prices] Returning ${results.length} retailers via shopping fallback`);
     return res.status(200).json({ retailers: results });
 
   } catch (error: any) {
