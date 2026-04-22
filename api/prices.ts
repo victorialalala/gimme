@@ -61,6 +61,8 @@ export default async function handler(req: any, res: any) {
     // Dedupe by retailer, keep lowest price per retailer
     const seen = new Map<string, any>();
 
+    const brandLower = (brand || "").toLowerCase().trim();
+
     for (const item of shoppingResults) {
       const priceNum = item.extracted_price || parsePrice(item.price || "");
       if (priceNum <= 0) continue;
@@ -69,12 +71,18 @@ export default async function handler(req: any, res: any) {
       if (!source) continue;
       if (isBlocked(item.link || "") || isBlockedSource(source)) continue;
 
-      const key = source.toLowerCase();
+      // Require a direct product link — no Google-search fallback, which
+      // was sending users to the wrong product.
+      const retailerLink = item.link || item.product_link;
+      if (!retailerLink) continue;
 
-      const retailerLink =
-        item.link ||
-        item.product_link ||
-        `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(`${source} ${item.title || rawQuery}`)}`;
+      // Sanity check: if we know the brand, the retailer's title should mention it.
+      if (brandLower.length > 2) {
+        const titleLower = (item.title || "").toLowerCase();
+        if (!titleLower.includes(brandLower)) continue;
+      }
+
+      const key = source.toLowerCase();
 
       if (!seen.has(key) || priceNum < seen.get(key).price_num) {
         seen.set(key, {
