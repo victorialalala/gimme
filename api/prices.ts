@@ -12,55 +12,62 @@ const BLOCKED_DOMAINS = [
   "wish.com", "temu.", "shein.",
 ];
 
-// Search URLs for known retailers — used to build deterministic direct links
-// so we never send the user to a Google redirect page.
-const RETAILER_SEARCH_URLS: Record<string, string> = {
-  "nordstrom": "https://www.nordstrom.com/sr?keyword=",
-  "saks fifth avenue": "https://www.saksfifthavenue.com/search?q=",
-  "saks": "https://www.saksfifthavenue.com/search?q=",
-  "bloomingdale's": "https://www.bloomingdales.com/shop/search?keyword=",
-  "bloomingdales": "https://www.bloomingdales.com/shop/search?keyword=",
-  "neiman marcus": "https://www.neimanmarcus.com/search.jsp?from=brSearch&q=",
-  "bergdorf goodman": "https://www.bergdorfgoodman.com/search.jsp?from=brSearch&q=",
-  "mytheresa": "https://www.mytheresa.com/us/en/search?q=",
-  "net-a-porter": "https://www.net-a-porter.com/en-us/search?q=",
-  "net a porter": "https://www.net-a-porter.com/en-us/search?q=",
-  "farfetch": "https://www.farfetch.com/shopping/search/items.aspx?q=",
-  "ssense": "https://www.ssense.com/en-us/search?keyword=",
-  "matchesfashion": "https://www.matchesfashion.com/us/search?q=",
-  "matches fashion": "https://www.matchesfashion.com/us/search?q=",
-  "24s": "https://www.24s.com/en-us/search?q=",
-  "moda operandi": "https://www.modaoperandi.com/search?q=",
-  "prada": "https://www.prada.com/us/en/search.html?q=",
-  "gucci": "https://www.gucci.com/us/en/search?searchString=",
-  "louis vuitton": "https://us.louisvuitton.com/eng-us/search/",
-  "hermès": "https://www.hermes.com/us/en/search/?s=",
-  "hermes": "https://www.hermes.com/us/en/search/?s=",
-  "chanel": "https://www.chanel.com/us/search/?query=",
-  "dior": "https://www.dior.com/en_us/search?q=",
-  "bottega veneta": "https://www.bottegaveneta.com/en-us/search?q=",
-  "celine": "https://www.celine.com/en-us/search?q=",
-  "saint laurent": "https://www.ysl.com/en-us/search?q=",
-  "ysl": "https://www.ysl.com/en-us/search?q=",
-  "balenciaga": "https://www.balenciaga.com/en-us/search?q=",
-  "loewe": "https://www.loewe.com/usa/en/search?q=",
-  "fendi": "https://www.fendi.com/us-en/search?q=",
-  "valentino": "https://www.valentino.com/en-us/search?search=",
-  "miu miu": "https://www.miumiu.com/us/en/search.html?q=",
-  "coach": "https://www.coach.com/search?q=",
-  "michael kors": "https://www.michaelkors.com/search?q=",
-  "tory burch": "https://www.toryburch.com/en-us/search/?q=",
-  "kate spade": "https://www.katespade.com/search?q=",
-  "marc jacobs": "https://www.marcjacobs.com/search?q=",
-  "shopbop": "https://www.shopbop.com/search?q=",
-  "revolve": "https://www.revolve.com/r/Search.jsp?search=",
-  "nap": "https://www.net-a-porter.com/en-us/search?q=",
-  "amazon": "https://www.amazon.com/s?k=",
-  "amazon.com": "https://www.amazon.com/s?k=",
-  "target": "https://www.target.com/s?searchTerm=",
-  "walmart": "https://www.walmart.com/search?q=",
-  "macy's": "https://www.macys.com/shop/search?keyword=",
-  "macys": "https://www.macys.com/shop/search?keyword=",
+// Two kinds of entries:
+//  - "search:<url>" — append URL-encoded query. Used for dept. stores and
+//    multi-brand sites where the search URL pattern is stable.
+//  - "home:<url>"   — static homepage. Used for brand-owned sites whose
+//    search URL conventions are inconsistent / 404-prone (Prada, LV, etc.).
+//    User lands on the brand home, where search is always one click away.
+const RETAILER_URLS: Record<string, string> = {
+  // Department stores & multi-brand
+  "nordstrom": "search:https://www.nordstrom.com/sr?keyword=",
+  "saks fifth avenue": "search:https://www.saksfifthavenue.com/search?q=",
+  "saks": "search:https://www.saksfifthavenue.com/search?q=",
+  "bloomingdale's": "search:https://www.bloomingdales.com/shop/search?keyword=",
+  "bloomingdales": "search:https://www.bloomingdales.com/shop/search?keyword=",
+  "neiman marcus": "search:https://www.neimanmarcus.com/search.jsp?from=brSearch&q=",
+  "bergdorf goodman": "search:https://www.bergdorfgoodman.com/search.jsp?from=brSearch&q=",
+  "mytheresa": "search:https://www.mytheresa.com/us/en/search?q=",
+  "net-a-porter": "search:https://www.net-a-porter.com/en-us/search?q=",
+  "net a porter": "search:https://www.net-a-porter.com/en-us/search?q=",
+  "farfetch": "search:https://www.farfetch.com/shopping/search/items.aspx?q=",
+  "ssense": "search:https://www.ssense.com/en-us/search?keyword=",
+  "24s": "search:https://www.24s.com/en-us/search?q=",
+  "moda operandi": "search:https://www.modaoperandi.com/search?q=",
+  "shopbop": "search:https://www.shopbop.com/search?q=",
+  "revolve": "search:https://www.revolve.com/r/Search.jsp?search=",
+  "matchesfashion": "search:https://www.matchesfashion.com/us/search?q=",
+  "matches fashion": "search:https://www.matchesfashion.com/us/search?q=",
+  "amazon": "search:https://www.amazon.com/s?k=",
+  "amazon.com": "search:https://www.amazon.com/s?k=",
+  "target": "search:https://www.target.com/s?searchTerm=",
+  "walmart": "search:https://www.walmart.com/search?q=",
+  "macy's": "search:https://www.macys.com/shop/search?keyword=",
+  "macys": "search:https://www.macys.com/shop/search?keyword=",
+
+  // Brand-owned sites — use homepage. Search URL conventions vary and often
+  // return 404 for direct query params (e.g. prada.com/us/en/search.html).
+  "prada": "home:https://www.prada.com/us/en.html",
+  "gucci": "home:https://www.gucci.com/us/en/",
+  "louis vuitton": "home:https://us.louisvuitton.com/eng-us/homepage",
+  "hermès": "home:https://www.hermes.com/us/en/",
+  "hermes": "home:https://www.hermes.com/us/en/",
+  "chanel": "home:https://www.chanel.com/us/",
+  "dior": "home:https://www.dior.com/en_us",
+  "bottega veneta": "home:https://www.bottegaveneta.com/en-us",
+  "celine": "home:https://www.celine.com/en-us/",
+  "saint laurent": "home:https://www.ysl.com/en-us",
+  "ysl": "home:https://www.ysl.com/en-us",
+  "balenciaga": "home:https://www.balenciaga.com/en-us",
+  "loewe": "home:https://www.loewe.com/usa/en/home",
+  "fendi": "home:https://www.fendi.com/us-en/",
+  "valentino": "home:https://www.valentino.com/en-us/",
+  "miu miu": "home:https://www.miumiu.com/us/en.html",
+  "coach": "search:https://www.coach.com/search?q=",
+  "michael kors": "search:https://www.michaelkors.com/search?q=",
+  "tory burch": "search:https://www.toryburch.com/en-us/search/?q=",
+  "kate spade": "search:https://www.katespade.com/search?q=",
+  "marc jacobs": "search:https://www.marcjacobs.com/search?q=",
 };
 
 const GENERIC_TOKENS = new Set([
@@ -103,35 +110,38 @@ function matchesProduct(title: string, brand: string, productName: string): bool
   return true;
 }
 
-// Build a direct search URL on the retailer's own site for this product.
-// Returns null if the retailer isn't on our known list (we'd rather skip
-// than risk another Google-redirect disappointment).
+// Build a link to the retailer's site for this product. Returns null if
+// the retailer isn't on our known list (skip rather than risk a 404 or
+// a Google redirect).
 function buildRetailerLink(source: string, brand: string, name: string): string | null {
   const sourceLower = source.toLowerCase().trim();
-  let template: string | null = null;
+  let entry: string | null = null;
 
-  // Exact match first
-  if (RETAILER_SEARCH_URLS[sourceLower]) {
-    template = RETAILER_SEARCH_URLS[sourceLower];
+  if (RETAILER_URLS[sourceLower]) {
+    entry = RETAILER_URLS[sourceLower];
   } else {
-    // Fuzzy: any key that is contained in / contains the source
-    for (const [k, v] of Object.entries(RETAILER_SEARCH_URLS)) {
+    for (const [k, v] of Object.entries(RETAILER_URLS)) {
       if (sourceLower.includes(k) || k.includes(sourceLower)) {
-        template = v;
+        entry = v;
         break;
       }
     }
   }
+  if (!entry) return null;
 
-  if (!template) return null;
+  // Homepage entries ignore the product query.
+  if (entry.startsWith("home:")) return entry.slice(5);
 
-  // If the retailer is the brand itself, searching "Prada prada arqué" is
-  // redundant — just search the product name.
+  if (!entry.startsWith("search:")) return null;
+  const template = entry.slice(7);
+
+  // Strip accents so searches like "arqué" don't break finicky site search.
   const brandLower = (brand || "").toLowerCase();
-  const searchTerm =
+  const raw =
     brandLower && sourceLower.includes(brandLower)
       ? (name || brand)
       : [brand, name].filter(Boolean).join(" ");
+  const searchTerm = normalize(raw);
 
   return template + encodeURIComponent(searchTerm);
 }
