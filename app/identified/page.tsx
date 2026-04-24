@@ -71,6 +71,15 @@ function IdentifiedContent() {
     }
   }, [stage]);
 
+  // Auto-save to collection as soon as the product is identified, so every
+  // scan is preserved. User can always remove from the collection view.
+  useEffect(() => {
+    if (stage === "found" && product && user && !saved && !saving) {
+      handleSave();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, product, user]);
+
   useEffect(() => {
     const base64 = localStorage.getItem("gimme-capture");
 
@@ -128,6 +137,8 @@ function IdentifiedContent() {
   }
 
   async function fetchPrices(prod: Product) {
+    const controller = new AbortController();
+    const clientTimeout = setTimeout(() => controller.abort(), 15000);
     try {
       const res = await fetch("/api/prices", {
         method: "POST",
@@ -138,20 +149,26 @@ function IdentifiedContent() {
           model: prod.model,
           search_query: prod.search_query,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(clientTimeout);
 
-      if (!res.ok) return;
+      if (!res.ok) {
+        setPricesFailed(true);
+        return;
+      }
 
       const data = await res.json();
       if (data.retailers && data.retailers.length > 0) {
         setRetailers(data.retailers);
-        if (product) {
-          setProduct((prev) =>
-            prev ? { ...prev, estimated_price: data.retailers[0].price } : prev
-          );
-        }
+        setProduct((prev) =>
+          prev ? { ...prev, estimated_price: data.retailers[0].price } : prev
+        );
+      } else {
+        setPricesFailed(true);
       }
     } catch (err) {
+      clearTimeout(clientTimeout);
       console.error("Price fetch error:", err);
       setPricesFailed(true);
     }
@@ -200,13 +217,9 @@ function IdentifiedContent() {
 
       if (error) throw error;
       setSaved(true);
-
-      localStorage.removeItem("gimme-capture");
-      localStorage.removeItem("gimme-product");
-
-      setTimeout(() => router.push("/home"), 1200);
     } catch (err) {
       console.error("Save error:", err);
+    } finally {
       setSaving(false);
     }
   }
@@ -560,13 +573,19 @@ function IdentifiedContent() {
           {/* Actions */}
           <div className="fade-up-2 mt-6 flex w-full max-w-sm flex-col gap-3">
             <button
-              onClick={handleSave}
-              disabled={saving || saved}
-              className="w-full rounded-full py-4 text-xs font-semibold uppercase tracking-[0.2em] transition-opacity hover:opacity-85 disabled:opacity-60"
-              style={{ fontFamily: "var(--font-space)", background: saved ? "#C8F135" : "#C8F135", color: "#0A0A0A" }}
+              onClick={() => {
+                localStorage.removeItem("gimme-capture");
+                localStorage.removeItem("gimme-product");
+                router.push("/home");
+              }}
+              className="w-full rounded-full py-4 text-xs font-semibold uppercase tracking-[0.2em] transition-opacity hover:opacity-85"
+              style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
             >
-              {saved ? "Saved!" : saving ? "Saving..." : "Save to Collection"}
+              {saved ? "View Collection" : saving ? "Saving…" : "View Collection"}
             </button>
+            <p className="text-center text-[10px] font-medium uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-space)", color: saved ? "#C8F135" : "#666660" }}>
+              {saved ? "✓ Saved to your collection" : saving ? "Saving to collection…" : " "}
+            </p>
             <button
               onClick={() => {
                 localStorage.removeItem("gimme-capture");
@@ -576,7 +595,7 @@ function IdentifiedContent() {
               className="w-full py-3 text-xs font-light underline underline-offset-4 transition-opacity hover:opacity-70"
               style={{ fontFamily: "var(--font-inter)", color: "#666660" }}
             >
-              Not the right item? Try again
+              Scan something else
             </button>
           </div>
         </div>
