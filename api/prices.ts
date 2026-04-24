@@ -7,9 +7,10 @@ const BLOCKED_DOMAINS = [
   "therealreal.", "vestiaire.", "grailed.", "stockx.",
   "offerup.", "craigslist.", "facebook.com/marketplace",
   "tradesy.", "rebag.", "luxedh.", "fashionphile.",
+  "etsy.", "bonanza.", "reverb.", "mercariapp.",
   // Risky / high-variance marketplaces and grey-market sellers
   "senser.", "dhgate.", "aliexpress.", "alibaba.", "joom.",
-  "wish.com", "temu.", "shein.",
+  "wish.com", "temu.", "shein.", "yupoo.",
 ];
 
 // Two kinds of entries:
@@ -92,6 +93,22 @@ function isBlockedSource(source: string): boolean {
   return BLOCKED_DOMAINS.some((d) => lower.includes(d.replace(".", "")));
 }
 
+function isBlockedUrl(url: string): boolean {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  return BLOCKED_DOMAINS.some((d) => lower.includes(d));
+}
+
+function isGoogleLink(url: string): boolean {
+  if (!url) return true;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "google.com" || host.endsWith(".google.com");
+  } catch {
+    return false;
+  }
+}
+
 function matchesProduct(title: string, brand: string, productName: string): boolean {
   const titleNorm = normalize(title);
   const brandNorm = normalize(brand);
@@ -113,7 +130,7 @@ function matchesProduct(title: string, brand: string, productName: string): bool
 // Build a link to the retailer's site for this product. Returns null if
 // the retailer isn't on our known list (skip rather than risk a 404 or
 // a Google redirect).
-function buildRetailerLink(source: string, brand: string, name: string): string | null {
+function buildRetailerLink(source: string, brand: string, name: string, model: string): string | null {
   const sourceLower = source.toLowerCase().trim();
   let entry: string | null = null;
 
@@ -135,13 +152,14 @@ function buildRetailerLink(source: string, brand: string, name: string): string 
   if (!entry.startsWith("search:")) return null;
   const template = entry.slice(7);
 
-  // Strip accents so searches like "arqué" don't break finicky site search.
+  // Include model/variant for specificity. Strip accents so "arqué" etc.
+  // don't break finicky site search.
   const brandLower = (brand || "").toLowerCase();
-  const raw =
+  const parts =
     brandLower && sourceLower.includes(brandLower)
-      ? (name || brand)
-      : [brand, name].filter(Boolean).join(" ");
-  const searchTerm = normalize(raw);
+      ? [name, model]
+      : [brand, name, model];
+  const searchTerm = normalize(parts.filter(Boolean).join(" "));
 
   return template + encodeURIComponent(searchTerm);
 }
@@ -204,10 +222,23 @@ export default async function handler(req: any, res: any) {
       const source = (item.source || "").trim();
       if (!source) continue;
       if (isBlockedSource(source)) continue;
+      if (isBlockedUrl(item.link || "") || isBlockedUrl(item.product_link || "")) continue;
 
       if (!matchesProduct(item.title || "", brand || "", name || "")) continue;
 
-      const link = buildRetailerLink(source, brand || "", name || "");
+      // Prefer SerpAPI's direct retailer URL when it's an actual retailer
+      // URL (not Google-routed). Lands the user on the EXACT product page.
+      // Fall back to our retailer search-URL map otherwise.
+      const rawLink = item.link || "";
+      const productLink = item.product_link || "";
+      let link: string | null = null;
+      if (rawLink && !isGoogleLink(rawLink) && !isBlockedUrl(rawLink)) {
+        link = rawLink;
+      } else if (productLink && !isGoogleLink(productLink) && !isBlockedUrl(productLink)) {
+        link = productLink;
+      } else {
+        link = buildRetailerLink(source, brand || "", name || "", model || "");
+      }
       if (!link) continue;
 
       const key = source.toLowerCase();
