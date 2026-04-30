@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useAuth } from "../components/AuthProvider";
 import { supabase } from "../lib/supabase";
 
@@ -49,6 +49,7 @@ function IdentifiedContent() {
   const [saved, setSaved] = useState(false);
   const [pricesFailed, setPricesFailed] = useState(false);
   const [scanMessage, setScanMessage] = useState("Looking at your photo");
+  const pricesInFlightRef = useRef(false);
 
   useEffect(() => {
     if (stage !== "scanning") return;
@@ -137,6 +138,10 @@ function IdentifiedContent() {
   }
 
   async function fetchPrices(prod: Product) {
+    if (pricesInFlightRef.current) return;
+    pricesInFlightRef.current = true;
+    setPricesFailed(false);
+
     const controller = new AbortController();
     const clientTimeout = setTimeout(() => controller.abort(), 15000);
     try {
@@ -171,8 +176,33 @@ function IdentifiedContent() {
       clearTimeout(clientTimeout);
       console.error("Price fetch error:", err);
       setPricesFailed(true);
+    } finally {
+      pricesInFlightRef.current = false;
     }
   }
+
+  // iOS PWA / flaky-network recovery: when the page becomes visible again
+  // or the network returns, retry prices if we're still on the loading
+  // state. iOS can suspend in-flight fetches AND timers when the app is
+  // backgrounded, which used to leave the spinner stuck forever.
+  useEffect(() => {
+    if (stage !== "found" || !product) return;
+    if (retailers.length > 0 || pricesFailed) return;
+
+    function retryIfStuck() {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      pricesInFlightRef.current = false;
+      if (product) fetchPrices(product);
+    }
+
+    document.addEventListener("visibilitychange", retryIfStuck);
+    window.addEventListener("online", retryIfStuck);
+    return () => {
+      document.removeEventListener("visibilitychange", retryIfStuck);
+      window.removeEventListener("online", retryIfStuck);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, product, retailers.length, pricesFailed]);
 
   async function handleSave() {
     if (!user || !product || saving) return;
