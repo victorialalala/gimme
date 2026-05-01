@@ -557,11 +557,11 @@ function IdentifiedContent() {
             <div className="fade-up-2 mt-5 w-full max-w-sm">
               <div className="flex flex-col gap-2.5">
                 {retailers.map((r, i) => (
-                  <button
+                  <a
                     key={i}
-                    onClick={() => {
-                      if (r.link) window.open(r.link, "_blank", "noopener,noreferrer");
-                    }}
+                    href={r.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex w-full items-center justify-between rounded-xl px-4 py-3.5 transition-colors tap-highlight"
                     style={{
                       border: r.tag ? "1px solid #C8F135" : "1px solid #222222",
@@ -591,7 +591,7 @@ function IdentifiedContent() {
                         <path d="M5 12h14M12 5l7 7-7 7" />
                       </svg>
                     </div>
-                  </button>
+                  </a>
                 ))}
               </div>
               <p className="mt-2.5 text-center text-[11px] font-light tracking-wide" style={{ fontFamily: "var(--font-inter)", color: "#444440" }}>

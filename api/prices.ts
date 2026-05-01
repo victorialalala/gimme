@@ -109,6 +109,44 @@ function isGoogleLink(url: string): boolean {
   }
 }
 
+// Google wraps retailer URLs in /url?q=… or /aclk?adurl=… redirects. When
+// the embedded destination is present we can land the user directly on the
+// retailer's product page instead of a search results page.
+function unwrapGoogleRedirect(url: string): string | null {
+  if (!url || !isGoogleLink(url)) return null;
+  try {
+    const u = new URL(url);
+    for (const param of ["adurl", "url", "q", "dest", "destination"]) {
+      const v = u.searchParams.get(param);
+      if (v && /^https?:\/\//i.test(v)) {
+        const inner = new URL(v);
+        const host = inner.hostname.toLowerCase();
+        if (host !== "google.com" && !host.endsWith(".google.com")) return v;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+// Resolve a result to the best landing URL we can produce, preferring direct
+// retailer product pages over search pages.
+function resolveProductLink(
+  rawLink: string,
+  productLink: string,
+  source: string,
+  brand: string,
+  name: string,
+  model: string
+): string | null {
+  for (const candidate of [rawLink, productLink]) {
+    if (!candidate || isBlockedUrl(candidate)) continue;
+    if (!isGoogleLink(candidate)) return candidate;
+    const unwrapped = unwrapGoogleRedirect(candidate);
+    if (unwrapped && !isBlockedUrl(unwrapped)) return unwrapped;
+  }
+  return buildRetailerLink(source, brand, name, model);
+}
+
 function matchesProduct(title: string, brand: string, productName: string): boolean {
   const titleNorm = normalize(title);
   const brandNorm = normalize(brand);
@@ -226,19 +264,14 @@ export default async function handler(req: any, res: any) {
 
       if (!matchesProduct(item.title || "", brand || "", name || "")) continue;
 
-      // Prefer SerpAPI's direct retailer URL when it's an actual retailer
-      // URL (not Google-routed). Lands the user on the EXACT product page.
-      // Fall back to our retailer search-URL map otherwise.
-      const rawLink = item.link || "";
-      const productLink = item.product_link || "";
-      let link: string | null = null;
-      if (rawLink && !isGoogleLink(rawLink) && !isBlockedUrl(rawLink)) {
-        link = rawLink;
-      } else if (productLink && !isGoogleLink(productLink) && !isBlockedUrl(productLink)) {
-        link = productLink;
-      } else {
-        link = buildRetailerLink(source, brand || "", name || "", model || "");
-      }
+      const link = resolveProductLink(
+        item.link || "",
+        item.product_link || "",
+        source,
+        brand || "",
+        name || "",
+        model || ""
+      );
       if (!link) continue;
 
       const key = source.toLowerCase();
