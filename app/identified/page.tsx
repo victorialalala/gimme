@@ -49,6 +49,8 @@ function IdentifiedContent() {
   const [saved, setSaved] = useState(false);
   const [pricesFailed, setPricesFailed] = useState(false);
   const [scanMessage, setScanMessage] = useState("Looking at your photo");
+  const [showCorrection, setShowCorrection] = useState(false);
+  const [correctionText, setCorrectionText] = useState("");
   const pricesInFlightRef = useRef(false);
 
   useEffect(() => {
@@ -480,9 +482,9 @@ function IdentifiedContent() {
               />
               <span className="text-[10px] font-medium uppercase tracking-[0.08em]" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
                 {product.confidence >= 85
-                  ? "Exact match"
+                  ? "Closest match"
                   : product.confidence >= 70
-                  ? "Strong match"
+                  ? "Best guess"
                   : product.confidence >= 40
                   ? "Likely match"
                   : "Approximate"}
@@ -599,6 +601,80 @@ function IdentifiedContent() {
               </p>
             </div>
           )}
+
+          {/* Correction escape hatch — vision AI mis-IDs are inevitable;
+              this lets the user type the real product name and re-fetch. */}
+          <div className="fade-up-2 mt-5 w-full max-w-sm">
+            {!showCorrection ? (
+              <button
+                onClick={() => setShowCorrection(true)}
+                className="w-full text-center text-[11px] font-medium uppercase tracking-[0.15em] underline underline-offset-4 transition-opacity hover:opacity-70"
+                style={{ fontFamily: "var(--font-space)", color: "#666660" }}
+              >
+                Wrong item? Search by name
+              </button>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const q = correctionText.trim();
+                  if (!q) return;
+                  setRetailers([]);
+                  setPricesFailed(false);
+                  setProduct((prev) =>
+                    prev ? { ...prev, name: q, brand: "", model: "", search_query: q, confidence: 100 } : prev
+                  );
+                  fetchPrices({
+                    brand: "",
+                    name: q,
+                    model: "",
+                    color: "",
+                    category: product?.category || "",
+                    description: "",
+                    estimated_price: "",
+                    confidence: 100,
+                    match_source: "ai",
+                    search_query: q,
+                  });
+                  setShowCorrection(false);
+                  setCorrectionText("");
+                }}
+                className="flex flex-col gap-2"
+              >
+                <input
+                  autoFocus
+                  type="text"
+                  value={correctionText}
+                  onChange={(e) => setCorrectionText(e.target.value)}
+                  placeholder="e.g. Canon Ivy CLIQ+ Blush"
+                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                  style={{
+                    fontFamily: "var(--font-inter)",
+                    background: "#141414",
+                    border: "1px solid #222222",
+                    color: "#F5F5F0",
+                  }}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    className="flex-1 rounded-full py-2.5 text-[11px] font-semibold uppercase tracking-[0.15em]"
+                    style={{ fontFamily: "var(--font-space)", background: "#C8F135", color: "#0A0A0A" }}
+                  >
+                    Search
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowCorrection(false); setCorrectionText(""); }}
+                    className="px-4 py-2.5 text-[11px] font-light"
+                    style={{ fontFamily: "var(--font-inter)", color: "#666660" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
 
           {/* Actions */}
           <div className="fade-up-2 mt-6 flex w-full max-w-sm flex-col gap-3">
