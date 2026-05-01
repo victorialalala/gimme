@@ -511,9 +511,11 @@ function IdentifiedContent() {
                 {[product.model, product.color].filter(Boolean).join(" · ")}
               </p>
             )}
-            <p className="mt-1 text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
-              {product.description}
-            </p>
+            {product.description && (
+              <p className="mt-1 text-sm font-light" style={{ fontFamily: "var(--font-inter)", color: "#666660" }}>
+                {product.description}
+              </p>
+            )}
             <p className="mt-3 text-2xl font-bold" style={{ fontFamily: "var(--font-space)", color: "#C8F135" }}>
               {product.estimated_price}
             </p>
@@ -521,7 +523,9 @@ function IdentifiedContent() {
               {retailers.length > 0
                 ? `${retailers.length} retailers found`
                 : pricesFailed
-                ? "Couldn\u2019t find prices"
+                ? product.estimated_price
+                  ? "Estimated retail"
+                  : "Couldn\u2019t find prices"
                 : "Searching for prices..."}
             </p>
           </div>

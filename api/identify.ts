@@ -144,7 +144,7 @@ async function tryGoogleLens(imageUrl: string): Promise<{
 
       if (agreementCount >= 2) {
         const brand = extractBrandFromTitle(title);
-        const price = topMatch.price?.value || extractPriceFromLens(data);
+        const price = cleanPrice(topMatch.price?.value || extractPriceFromLens(data));
 
         return {
           result: {
@@ -153,7 +153,7 @@ async function tryGoogleLens(imageUrl: string): Promise<{
             model: "",
             color: "",
             category: guessCategory(title),
-            description: `Found on ${source}`,
+            description: "",
             estimated_price: price,
             confidence: 80,
             match_source: "lens",
@@ -165,7 +165,7 @@ async function tryGoogleLens(imageUrl: string): Promise<{
 
       if (visualMatches.length >= 3) {
         const brand = extractBrandFromTitle(title);
-        const price = topMatch.price?.value || "";
+        const price = cleanPrice(topMatch.price?.value || "");
 
         return {
           result: {
@@ -174,7 +174,7 @@ async function tryGoogleLens(imageUrl: string): Promise<{
             model: "",
             color: "",
             category: guessCategory(title),
-            description: `Visual match from ${source}`,
+            description: "",
             estimated_price: price,
             confidence: 55, // Below threshold — will trigger Claude refinement
             match_source: "lens",
@@ -292,7 +292,7 @@ Category rules:
     color: product.color || "",
     category: product.category || "other",
     description: product.description || "",
-    estimated_price: product.estimated_price || "",
+    estimated_price: cleanPrice(product.estimated_price || ""),
     confidence: product.confidence || 50,
     match_source: "ai",
     search_query: searchQuery,
@@ -321,15 +321,55 @@ function extractBrandFromTitle(title: string): string {
   return title.split(/\s+/)[0] || "Unknown";
 }
 
+// Lens visual_match titles often come from Amazon/eBay/etc. listings stuffed
+// with retailer prefixes, parenthetical SEO bloat, and trailing dimensions.
+// Trim them down to something display-worthy.
 function cleanProductTitle(title: string, brand: string): string {
-  const re = new RegExp(`^${brand}\\s*[-–—:]?\\s*`, "i");
-  return title.replace(re, "").trim() || title;
+  let t = (title || "").trim();
+  if (!t) return title;
+
+  // Strip leading retailer prefix: "Amazon.com: ", "eBay - ", "Walmart.com:", etc.
+  t = t.replace(
+    /^(amazon(?:\.com)?|ebay|walmart(?:\.com)?|target|nordstrom|saks(?:\s+fifth\s+avenue)?|macy['']?s|sephora|ulta|net-?a-?porter|farfetch|ssense|shopbop|revolve|etsy|wayfair|costco|bed\s*bath\s*&?\s*beyond|home\s*depot)\s*[:|·\-–—]\s*/i,
+    ""
+  );
+
+  // Strip leading brand name (already shown separately in the UI).
+  if (brand) {
+    const re = new RegExp(`^${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[-–—:|]?\\s*`, "i");
+    t = t.replace(re, "");
+  }
+
+  // Drop everything after the first " - " / " | " / " – " separator — the
+  // tail is almost always SEO filler ("- New, Vegan, 6 oz - Free Shipping").
+  t = t.split(/\s+[\-–—|]\s+/)[0];
+
+  // Strip trailing parentheticals (closed or unclosed with "...").
+  t = t.replace(/\s*\([^)]*\)\s*$/, "").replace(/\s*\([^)]*\.{2,}\s*$/, "");
+
+  // Trim trailing size/qty fragments left over: "6.70 oz", "200 ml", "12-pack".
+  t = t.replace(/\s+\d+(\.\d+)?\s?(oz|ml|fl\s?oz|grams?|kg|lbs?|cm|mm|inch|inches|pack|count|ct)\b.*$/i, "");
+
+  t = t.trim();
+  if (t.length > 60) t = t.slice(0, 57).replace(/\s+\S*$/, "") + "…";
+
+  return t || title;
+}
+
+// Strip footnote markers and "from $X" prefixes that some retailers append.
+function cleanPrice(price: string): string {
+  if (!price) return "";
+  return price
+    .replace(/[*†‡§¶]/g, "")
+    .replace(/^\s*from\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function extractPriceFromLens(data: any): string {
   const matches = data.visual_matches || [];
   for (const m of matches) {
-    if (m.price?.value) return m.price.value;
+    if (m.price?.value) return cleanPrice(m.price.value);
   }
   return "";
 }
