@@ -481,13 +481,7 @@ function IdentifiedContent() {
                 }}
               />
               <span className="text-[10px] font-medium uppercase tracking-[0.08em]" style={{ fontFamily: "var(--font-space)", color: "#F5F5F0" }}>
-                {product.confidence >= 85
-                  ? "Closest match"
-                  : product.confidence >= 70
-                  ? "Best guess"
-                  : product.confidence >= 40
-                  ? "Likely match"
-                  : "Approximate"}
+                {product.confidence >= 100 ? "Exact match" : `${Math.round(product.confidence)}% match`}
               </span>
             </div>
 
